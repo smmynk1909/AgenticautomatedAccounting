@@ -1,0 +1,42 @@
+# Chart of accounts seed — services company, India (doc 09 §2).
+# Loaded into `accounts` by generate_synthetic.py / a future `make seed-coa`
+# target. Header rows (x000) exist purely for hierarchy/reporting rollup.
+
+- { code: "1000", name: "Assets", type: asset, parent: null }
+- { code: "1001", name: "Bank", type: asset, parent: "1000" }
+- { code: "1002", name: "Accounts Receivable", type: asset, parent: "1000" }
+- { code: "1003", name: "Security Deposits", type: asset, parent: "1000" }
+- { code: "1004", name: "Fixed Assets", type: asset, parent: "1000" }
+- { code: "1005", name: "Accumulated Depreciation", type: asset, parent: "1000" }
+- { code: "1006", name: "GST Input Credit", type: asset, parent: "1000" }
+- { code: "1007", name: "TDS Receivable", type: asset, parent: "1000" }
+
+- { code: "2000", name: "Liabilities", type: liability, parent: null }
+- { code: "2001", name: "Accounts Payable", type: liability, parent: "2000" }
+- { code: "2002", name: "Salary Payable", type: liability, parent: "2000" }
+- { code: "2003", name: "PF Payable", type: liability, parent: "2000" }
+- { code: "2004", name: "ESI Payable", type: liability, parent: "2000" }
+- { code: "2005", name: "PT Payable", type: liability, parent: "2000" }
+- { code: "2006", name: "TDS Payable", type: liability, parent: "2000" }
+- { code: "2007", name: "GST Output Liability", type: liability, parent: "2000" }
+- { code: "2008", name: "Advances Received", type: liability, parent: "2000" }
+
+- { code: "3000", name: "Equity", type: equity, parent: null }
+- { code: "3001", name: "Share Capital", type: equity, parent: "3000" }
+- { code: "3002", name: "Retained Earnings", type: equity, parent: "3000" }
+
+- { code: "4000", name: "Income", type: income, parent: null }
+- { code: "4001", name: "Domestic Services Income", type: income, parent: "4000" }
+- { code: "4002", name: "Export Services Income", type: income, parent: "4000" }
+- { code: "4003", name: "Product License Income", type: income, parent: "4000" }
+
+- { code: "5000", name: "Expenses", type: expense, parent: null }
+- { code: "5001", name: "Salaries Expense", type: expense, parent: "5000" }
+- { code: "5002", name: "Contractor Cost", type: expense, parent: "5000" }
+- { code: "5003", name: "Rent Expense", type: expense, parent: "5000" }
+- { code: "5004", name: "Software Subscriptions", type: expense, parent: "5000" }
+- { code: "5005", name: "Cloud Infrastructure", type: expense, parent: "5000" }
+- { code: "5006", name: "Travel Expense", type: expense, parent: "5000" }
+- { code: "5007", name: "Utilities Expense", type: expense, parent: "5000" }
+- { code: "5008", name: "Depreciation Expense", type: expense, parent: "5000" }
+- { code: "5009", name: "Professional Fees", type: expense, parent: "5000" }

@@ -1,0 +1,22 @@
+# Ticket routing matrix — doc 07 §3.2. Code (SUP-1b Router), not prompt.
+# `owner: "human:<queue>"` routes to a human queue instead of an agent.
+
+device: { owner: ADM-1 }
+access: { owner: ADM-1 }
+facilities: { owner: ADM-1 }
+records: { owner: ADM-1 }
+procurement: { owner: ADM-1 }
+hr: { owner: HR-1 }
+payroll: { owner: FIN-1 }
+expense: { owner: FIN-1 }
+delivery: { owner: OPS-1 }
+it_support: { owner: "human:it_support", subrules: [{ suggest: OPS-1 codeassist }] }
+cross_functional: { owner: ORCH-0, subrules: [{ note: "fans out to per-department child tickets, doc 07 §3.2" }] }
+unknown: { owner: "human:support_lead" }
+
+# Confidential fast-path (doc 07 §3.1, doc 04 §2.6): these subcategories are
+# always confidential=true and routed direct to a human, minimal processing.
+confidential_subcategories:
+  - grievance
+  - harassment
+  - security_incident

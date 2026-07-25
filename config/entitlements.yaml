@@ -1,0 +1,27 @@
+# Grade-based asset entitlement matrix — doc 03 §2.1. Read via mcp-erp's
+# get_policy/query_policies (Sprint 2); ADM-1 quotes the policy_id when
+# applying one (doc 03 §4 rule 2).
+asset_high_value_threshold_inr: 50000   # crossing this fires gate `asset_high_value`
+
+grades:
+  E1:
+    laptop: { spec: "16GB RAM, i5/Ryzen 5 class", approx_value_inr: 55000 }
+  E2:
+    laptop: { spec: "16GB RAM, i5/Ryzen 5 class", approx_value_inr: 55000 }
+  E3:
+    laptop: { spec: "16GB RAM, i7/Ryzen 7 class", approx_value_inr: 75000 }
+  E4:
+    laptop: { spec: "32GB RAM, i7/Ryzen 7 class", approx_value_inr: 110000 }
+    monitor: { spec: "27in external monitor", approx_value_inr: 18000 }
+  E5:
+    laptop: { spec: "32GB RAM, i7/Ryzen 7 class", approx_value_inr: 110000 }
+    monitor: { spec: "27in external monitor", approx_value_inr: 18000 }
+
+auto_approved_replacements:
+  # doc 03 §2.3: small-value ticket resolutions ADM-1 can execute without a gate
+  - item: charger
+    max_value_inr: 2000
+  - item: mouse
+    max_value_inr: 1000
+  - item: keyboard
+    max_value_inr: 1500

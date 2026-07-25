@@ -1,0 +1,115 @@
+# Tool → required-scope map (doc 08 §0, §10). Enforced by mcps/_base scope_mw:
+# a caller's JWT `scopes[]` (agent service-account or human session) must be a
+# superset of the tool's list, else PERMISSION_DENIED + audit event.
+#
+# Sprint 1 implements only the `audit.*` and `approvals.*` groups (mcp-audit,
+# mcp-approvals exist today). The rest mirror doc 08 §10's matrix so agent
+# `config.yaml` scope grants (written per-agent as each agent lands) have a
+# fixed target to point at — the tools themselves 404 until their MCP server
+# is implemented in a later sprint.
+
+# --- mcp-audit (Sprint 1) ---
+audit.log_event: [audit.write]
+audit.query_events: [audit.read]
+audit.export_audit: [audit.admin]
+audit.compute_day_root: [audit.admin]
+
+# --- mcp-approvals (Sprint 1) ---
+approvals.request_approval: [approvals.request]
+approvals.get_approval_status: [approvals.read]
+# approve/reject are human-only UI endpoints, not MCP tools — no agent scope
+# can ever satisfy them (doc 08 §5, structurally enforced, not a scope check).
+
+# --- mcp-erp (Sprint 2) ---
+erp.get_employee: [erp.people.read]
+erp.query_employees: [erp.people.read]
+erp.upsert_employee: [erp.people.write]
+erp.get_candidate: [erp.people.read]
+erp.query_candidates: [erp.people.read]
+erp.upsert_candidate: [erp.people.write]
+erp.propose_merge: [erp.people.write]
+erp.convert_candidate_to_employee: [erp.people.write]
+erp.query_assets: [erp.assets.read]
+erp.get_asset: [erp.assets.read]
+erp.reserve_asset: [erp.assets.write]
+erp.assign_asset: [erp.assets.write]
+erp.return_asset: [erp.assets.write]
+erp.writeoff_asset: [erp.assets.write]
+erp.asset_audit_report: [erp.assets.read]
+erp.create_ticket: [erp.tickets.write]
+erp.get_ticket: [erp.tickets.read]
+erp.query_tickets: [erp.tickets.read]
+erp.append_ticket_event: [erp.tickets.write]
+erp.update_ticket: [erp.tickets.write]
+erp.link_tickets: [erp.tickets.write]
+erp.set_summary: [erp.tickets.write.summary]
+erp.dispatch_task: [erp.tasks.dispatch]
+erp.claim_task: [erp.tasks.write]
+erp.update_task: [erp.tasks.write]
+erp.get_task_status: [erp.tasks.read]
+erp.push_dashboard_item: [erp.dashboard.write]
+erp.get_dashboard: [erp.dashboard.read]
+erp.get_policy: [erp.policies.read]
+erp.query_policies: [erp.policies.read]
+
+# --- mcp-finance (Sprint 5-6) ---
+finance.compute_payroll: [finance.write]
+finance.freeze_payroll_inputs: [finance.write]
+finance.generate_disbursement_file: [finance.write, finance.gated]
+finance.post_journal: [finance.write]
+finance.get_trial_balance: [finance.read]
+finance.get_ledger: [finance.read]
+finance.get_pnl: [finance.read]
+finance.get_balance_sheet: [finance.read]
+finance.reconcile_bank: [finance.write]
+finance.confirm_matches: [finance.write, finance.gated]
+finance.compute_invoice: [finance.write]
+finance.issue_invoice: [finance.write, finance.gated]
+finance.compute_tds_projection: [finance.read]
+finance.compare_regimes: [finance.read]
+finance.gst_worksheet: [finance.read]
+finance.advance_tax_estimate: [finance.read]
+finance.run_depreciation: [finance.write]
+finance.close_period: [finance.write, finance.gated]
+finance.reopen_period: [finance.write, finance.gated]
+finance.cashflow_model: [finance.read]
+
+# --- mcp-docs (Sprint 4) ---
+docs.extract_text: [docs.read]
+docs.render_pdf: [docs.render]
+docs.render_docx: [docs.render]
+docs.render_xlsx: [docs.render]
+docs.store_file: [docs.write]
+docs.get_file: [docs.read]
+
+# --- mcp-search (Sprint 7) ---
+search.upsert_documents: [search.write]
+search.search_kb: [search.read]
+search.search_candidates: [search.candidates.read]
+search.search_code: [search.code.read]
+search.embed: [search.read]
+search.cluster: [search.read]
+
+# --- mcp-approvals-admin / mcp-comms (Sprint 3-4) ---
+comms.notify_user: [comms.notify]
+comms.send_reminder: [comms.notify]
+comms.incident_broadcast: [comms.notify.broadcast]
+comms.draft_external_email: [comms.draft]
+comms.distribute_slip: [comms.notify.confidential]
+comms.poll_inbox: [comms.ingest]
+
+# --- mcp-hrsourcing (Sprint 7) ---
+hrsourcing.extract_resume: [hrsourcing.read]
+hrsourcing.connector_fetch: [hrsourcing.connectors]
+hrsourcing.skill_normalize: [hrsourcing.read]
+
+# --- mcp-projects (Sprint 9) ---
+projects.list_repos: [projects.read]
+projects.get_file: [projects.read]
+projects.get_diff: [projects.read]
+projects.index_repo: [projects.write]
+projects.search_code: [projects.read]
+projects.issues_crud: [projects.write]
+projects.ci_status: [projects.read]
+projects.suggest_patch: [projects.write]
+projects.secrets_scan: [projects.read]

@@ -1,0 +1,58 @@
+[project]
+name = "awp-workspace"
+version = "0.1.0"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "awp-shared",
+  "awp-mcp-base",
+  "awp-db",
+  "awp-mcp-audit",
+  "awp-mcp-approvals",
+]
+
+[dependency-groups]
+dev = [
+  "ruff>=0.8",
+  "mypy>=1.14",
+  "pytest>=8.0",
+  "pytest-asyncio>=0.24",
+  "pytest-cov>=6.0",
+  "fakeredis>=2.21",
+  "testcontainers[postgres]>=4.9",
+  "pre-commit>=4.0",
+]
+
+[tool.uv.workspace]
+# Sprint 1 members. `fincore`, `agents/*`, `gateway`, `scheduler` join the glob
+# as later sprints add them (docs/12-SOLUTIONING-REPO.md §5).
+members = ["shared", "db", "mcps/*"]
+
+[tool.uv.sources]
+awp-shared = { workspace = true }
+awp-mcp-base = { workspace = true }
+awp-db = { workspace = true }
+awp-mcp-audit = { workspace = true }
+awp-mcp-approvals = { workspace = true }
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "ASYNC"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+namespace_packages = true
+explicit_package_bases = true
+warn_unused_ignores = true
+
+[[tool.mypy.overrides]]
+# Third-party packages that ship no/partial stubs; tighten as coverage improves.
+module = ["mcp.*", "weasyprint.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["shared", "mcps", "db"]

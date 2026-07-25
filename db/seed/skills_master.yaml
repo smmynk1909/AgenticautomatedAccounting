@@ -1,0 +1,32 @@
+# Controlled skills vocabulary — doc 03 §2.2 skills_master, used by HR-1's
+# resume normalization (doc 04 §2.2) and OPS-1's allocation skill-match
+# (doc 05 §2.1) to make shortlisting/allocation deterministic downstream.
+
+- { name: "Python", synonyms: ["py", "python3"], category: "language" }
+- { name: "TypeScript", synonyms: ["ts"], category: "language" }
+- { name: "JavaScript", synonyms: ["js", "node.js", "nodejs"], category: "language" }
+- { name: "Java", synonyms: [], category: "language" }
+- { name: "Go", synonyms: ["golang"], category: "language" }
+- { name: "SQL", synonyms: ["structured query language"], category: "language" }
+- { name: "React", synonyms: ["react.js", "reactjs"], category: "framework" }
+- { name: "FastAPI", synonyms: [], category: "framework" }
+- { name: "Django", synonyms: [], category: "framework" }
+- { name: "LangGraph", synonyms: [], category: "framework" }
+- { name: "PostgreSQL", synonyms: ["postgres", "psql"], category: "database" }
+- { name: "Redis", synonyms: [], category: "database" }
+- { name: "Qdrant", synonyms: [], category: "database" }
+- { name: "Docker", synonyms: ["containerization"], category: "platform" }
+- { name: "Kubernetes", synonyms: ["k8s"], category: "platform" }
+- { name: "AWS", synonyms: ["amazon web services"], category: "platform" }
+- { name: "Azure", synonyms: [], category: "platform" }
+- { name: "GCP", synonyms: ["google cloud"], category: "platform" }
+- { name: "Machine Learning", synonyms: ["ml"], category: "discipline" }
+- { name: "LLM Engineering", synonyms: ["prompt engineering", "genai"], category: "discipline" }
+- { name: "Data Engineering", synonyms: ["etl"], category: "discipline" }
+- { name: "DevOps", synonyms: ["sre"], category: "discipline" }
+- { name: "QA Automation", synonyms: ["test automation"], category: "discipline" }
+- { name: "Project Management", synonyms: ["pm", "delivery management"], category: "discipline" }
+- { name: "Accounting", synonyms: ["bookkeeping"], category: "domain" }
+- { name: "Payroll Processing", synonyms: [], category: "domain" }
+- { name: "GST Compliance", synonyms: [], category: "domain" }
+- { name: "Recruiting", synonyms: ["talent acquisition", "sourcing"], category: "domain" }

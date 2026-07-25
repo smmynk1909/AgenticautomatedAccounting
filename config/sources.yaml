@@ -1,0 +1,19 @@
+# External/internal sourcing connectors — doc 08 §7. Ships with internal_db
+# and csv_import; external job boards added only once their API ToS/license
+# is confirmed (doc 04 §2.1 compliance note) — Phase 3, Sprint 7+.
+sources:
+  - id: internal_db
+    kind: internal
+    enabled: true
+    notes: "Search the existing candidates table — no external call."
+  - id: csv_import
+    kind: file
+    enabled: true
+    notes: "Manual/bulk CSV upload path, dedupe pipeline applies (doc 03 §2.2)."
+  # - id: <job_board_x>
+  #   kind: api
+  #   enabled: false
+  #   auth_ref: vault://sources/<job_board_x>
+  #   rate_limit_rpm: 30
+  #   tos_ref: docs/legal/<job_board_x>-tos.md
+  #   consent_required: true

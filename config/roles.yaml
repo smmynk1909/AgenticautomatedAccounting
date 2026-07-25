@@ -1,0 +1,63 @@
+# Human RBAC roles — doc 00 §7. Consumed by the gateway's RBAC layer (Sprint 3)
+# and, until Keycloak lands (DEVIATIONS.md #2), by config/dev_users.yaml.
+# `approver_for` cross-references config/gates.yaml approver_roles.
+
+- role: ceo
+  description: Executive dashboard, all reports, top-level escalations.
+  approver_for: []
+
+- role: director
+  description: Cross-department oversight; final HITL escalation tier.
+  approver_for: [payroll_run, period_reopen, asset_writeoff, timeline_commitment_change]
+
+- role: finance_head
+  description: Owns Finance approvals.
+  approver_for: [payroll_run, period_close, slip_reissue, invoice_issue, expense_posting]
+
+- role: hr_head
+  description: Owns HR approvals.
+  approver_for: [offer_communication, letter_issue]
+
+- role: admin_head
+  description: Owns Admin data-quality approvals.
+  approver_for: [data_merge, record_correction]
+
+- role: support_lead
+  description: Owns the ticket fabric's KB/bulk-action approvals.
+  approver_for: [kb_publish, bulk_close, sla_table_change]
+
+- role: manager
+  description: Line manager — team-scoped approvals and dashboards.
+  approver_for: [asset_high_value, allocation_change, training_plan]
+
+- role: recruiter
+  description: HR sourcing/shortlisting operator.
+  approver_for: [shortlist_publish]
+
+- role: dept_head
+  description: Generic department-head tier (Phase 3 external-send whitelist).
+  approver_for: [external_send]
+
+- role: hr
+  description: HR staff, non-approver operational access.
+  approver_for: []
+
+- role: finance
+  description: Finance staff, non-approver operational access.
+  approver_for: []
+
+- role: admin
+  description: Admin staff, non-approver operational access.
+  approver_for: []
+
+- role: ops
+  description: Operations/delivery staff.
+  approver_for: []
+
+- role: support
+  description: Support staff.
+  approver_for: []
+
+- role: employee
+  description: Baseline authenticated user — self-service only (own tickets, own payslips).
+  approver_for: []

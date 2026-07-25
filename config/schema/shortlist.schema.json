@@ -1,0 +1,22 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "shortlist.yaml",
+  "type": "object",
+  "required": ["weights", "hard_filters", "protected_attributes_excluded", "default_top_n"],
+  "properties": {
+    "weights": {
+      "type": "object",
+      "required": [
+        "keyword_coverage",
+        "semantic_similarity",
+        "experience_fit",
+        "recency_of_relevant_skills",
+        "audit_score_consistency"
+      ],
+      "additionalProperties": { "type": "number", "minimum": 0, "maximum": 1 }
+    },
+    "hard_filters": { "type": "array", "items": { "type": "string" } },
+    "protected_attributes_excluded": { "type": "array", "items": { "type": "string" } },
+    "default_top_n": { "type": "integer", "exclusiveMinimum": 0 }
+  }
+}

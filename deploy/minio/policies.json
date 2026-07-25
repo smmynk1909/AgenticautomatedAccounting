@@ -1,0 +1,5 @@
+{
+  "_comment": "Reference bucket policy for the awp-artifacts bucket — not yet applied by anything (mcp-docs, the first real consumer, lands Sprint 4). Default-private: no anonymous/public statements at all, matching doc 09's 'no data leaves the premises' baseline. Service access goes through MINIO_ROOT_USER/PASSWORD (dev) or scoped IAM users (prod), never anonymous policy grants. Apply with: mc mb local/awp-artifacts && mc anonymous set none local/awp-artifacts",
+  "Version": "2012-10-17",
+  "Statement": []
+}

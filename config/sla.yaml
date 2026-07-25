@@ -1,0 +1,29 @@
+# Default SLA table — doc 07 §3.4. Pure config; SLAWarden (Sprint 3) is pure
+# code + notifications against this table, no LLM in the timer path.
+calendar: IST
+business_hours: { start: "09:00", end: "18:00" }
+holidays_ref: config/holidays_in.yaml   # TODO Sprint 3: company holiday calendar
+
+priorities:
+  P1: { first_response_minutes: 15, resolution_hours: 4 }
+  P2: { first_response_minutes: 60, resolution_hours: 24 }
+  P3: { first_response_minutes: 240, resolution_hours: 72 }
+  P4: { first_response_minutes: 1440, resolution_hours: 168 }
+
+escalation_ladder:
+  - at_pct: 75
+    action: warn_assignee
+  - at_pct: 100
+    action: notify_manager_and_dashboard
+  - at_pct: 100
+    priority: P1
+    action: notify_director_ceo_incident_channel
+
+staleness_thresholds_days:
+  P1: { hours: 2 }
+  P2: { days: 1 }
+  P3: { days: 3 }
+
+waiting_requester:
+  reminder_days: 5
+  auto_resolve_days: 10

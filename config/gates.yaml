@@ -1,0 +1,137 @@
+# HITL Approval Gate Registry — doc 09 §5 (+ doc 03/04/05/06/07 tool sections).
+# Changing this file is itself gated behind an admin-approved PR (doc 08 §5).
+# `payload_model` = the Pydantic model the gate's approval-card payload must
+# validate against (rendered read-only to approvers); null = generic dict
+# payload until that flow is implemented (tracked per-sprint in the docs).
+
+payroll_run:
+  approver_roles: [finance_head, director]
+  n_required: 2
+  ttl_h: 24
+  payload_model: PayrollRunApprovalPayload
+  notes: "maker-checker; doc 06 §2.1"
+
+period_close:
+  approver_roles: [finance_head]
+  n_required: 1
+  ttl_h: 24
+  payload_model: null
+  notes: "doc 06 §2.2 month-close"
+
+period_reopen:
+  approver_roles: [director]
+  n_required: 1
+  ttl_h: 24
+  payload_model: null
+  notes: "reopen logs a mandatory reason; doc 09 §5"
+
+slip_reissue:
+  approver_roles: [finance_head]
+  n_required: 1
+  ttl_h: 24
+  payload_model: null
+  notes: "doc 06 §2.1 reissue/duplicate salary slips"
+
+invoice_issue:
+  approver_roles: [finance_head]
+  n_required: 1
+  ttl_h: 24
+  payload_model: null
+  notes: "whitelist auto-approve candidate for Phase 3"
+
+expense_posting:
+  approver_roles: [finance_head]
+  n_required: 1
+  ttl_h: 24
+  payload_model: null
+  notes: "only fires when amount > INR 25000 or extraction confidence < 0.8 (doc 06 §2.2)"
+
+offer_communication:
+  approver_roles: [hr_head]
+  n_required: 1
+  ttl_h: 24
+  payload_model: null
+  notes: "candidate-facing text frozen at approval time; doc 04 §2.4"
+
+shortlist_publish:
+  approver_roles: [recruiter]
+  n_required: 1
+  ttl_h: 24
+  payload_model: null
+
+training_plan:
+  approver_roles: [manager]
+  n_required: 1
+  ttl_h: 24
+  payload_model: null
+
+letter_issue:
+  approver_roles: [hr_head]
+  n_required: 1
+  ttl_h: 24
+  payload_model: null
+  notes: "employment/offer/relieving letters; doc 04 §2.6"
+
+asset_high_value:
+  approver_roles: [manager]
+  n_required: 1
+  ttl_h: 24
+  payload_model: null
+  notes: "threshold in config/entitlements.yaml (default INR 50000); doc 03 §2.1"
+
+asset_writeoff:
+  approver_roles: [director]
+  n_required: 1
+  ttl_h: 24
+  payload_model: null
+  notes: "irreversible; doc 03 §2.1"
+
+data_merge:
+  approver_roles: [admin_head]
+  n_required: 1
+  ttl_h: 24
+  payload_model: null
+
+record_correction:
+  approver_roles: [admin_head]
+  n_required: 1
+  ttl_h: 24
+  payload_model: null
+
+allocation_change:
+  approver_roles: [manager]
+  n_required: 1
+  ttl_h: 24
+  payload_model: null
+
+timeline_commitment_change:
+  approver_roles: [director]
+  n_required: 1
+  ttl_h: 24
+  payload_model: null
+
+kb_publish:
+  approver_roles: [support_lead]
+  n_required: 1
+  ttl_h: 24
+  payload_model: null
+  notes: "doc 07 §3.5 KB mining publish step"
+
+bulk_close:
+  approver_roles: [support_lead]
+  n_required: 1
+  ttl_h: 24
+  payload_model: null
+
+sla_table_change:
+  approver_roles: [support_lead]
+  n_required: 1
+  ttl_h: 24
+  payload_model: null
+
+external_send:
+  approver_roles: [dept_head]
+  n_required: 1
+  ttl_h: 24
+  payload_model: null
+  notes: "Phase 3 only — template whitelist; doc 08 §6"

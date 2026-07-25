@@ -1,0 +1,39 @@
+# DEV-ONLY static user directory — DEVIATIONS.md #2. Replaced by a Keycloak
+# realm at Sprint 11. `gateway/routers` dev-login route (Sprint 3) mints a
+# session JWT for one of these, no password, gated by AWP_ENV=dev.
+
+- id: dev-ceo
+  name: Dev CEO
+  roles: [ceo]
+
+- id: dev-director
+  name: Dev Director
+  roles: [director]
+
+- id: dev-finance-head
+  name: Dev Finance Head
+  roles: [finance_head, finance]
+
+- id: dev-hr-head
+  name: Dev HR Head
+  roles: [hr_head, hr]
+
+- id: dev-admin-head
+  name: Dev Admin Head
+  roles: [admin_head, admin]
+
+- id: dev-support-lead
+  name: Dev Support Lead
+  roles: [support_lead, support]
+
+- id: dev-manager
+  name: Dev Manager
+  roles: [manager]
+
+- id: dev-recruiter
+  name: Dev Recruiter
+  roles: [recruiter, hr]
+
+- id: dev-employee
+  name: Dev Employee
+  roles: [employee]

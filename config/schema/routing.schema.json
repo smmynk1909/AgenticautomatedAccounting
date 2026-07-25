@@ -1,0 +1,17 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "routing.yaml",
+  "type": "object",
+  "required": ["confidential_subcategories"],
+  "properties": {
+    "confidential_subcategories": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": {
+    "type": "object",
+    "required": ["owner"],
+    "properties": {
+      "owner": { "type": "string" },
+      "subrules": { "type": "array" }
+    }
+  }
+}

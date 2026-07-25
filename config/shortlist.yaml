@@ -1,0 +1,23 @@
+# Shortlisting weights — doc 04 §2.3. Deterministic-first: only the
+# per-candidate justification text is LLM-written; the score is pure code.
+weights:
+  keyword_coverage: 0.35
+  semantic_similarity: 0.25
+  experience_fit: 0.20
+  recency_of_relevant_skills: 0.10
+  audit_score_consistency: 0.10
+
+hard_filters:
+  - location
+  - notice_period
+  - ctc_band
+  - work_authorization
+
+protected_attributes_excluded:
+  # never enter features or LLM context — doc 04 §2.3 fairness rule
+  - age
+  - gender
+  - religion
+  - marital_status
+
+default_top_n: 10

@@ -1,0 +1,14 @@
+# Seed rows for the `entitlement_matrix` table (doc 09 §1 Assets section) —
+# the one policy table doc 09's DDL actually names among "policy tables"
+# (doc 08 §1's other policy reads — spend thresholds, SLA table, routing
+# matrix, approval-gate policy — are served straight from config/*.yaml by
+# mcp-erp, no DB mirror needed for those). Mirrors config/entitlements.yaml;
+# regenerate this file if that config changes.
+
+- { grade: "E1", asset_type: "laptop", spec: "16GB RAM, i5/Ryzen 5 class", policy_id: "entitlement_e1_laptop" }
+- { grade: "E2", asset_type: "laptop", spec: "16GB RAM, i5/Ryzen 5 class", policy_id: "entitlement_e2_laptop" }
+- { grade: "E3", asset_type: "laptop", spec: "16GB RAM, i7/Ryzen 7 class", policy_id: "entitlement_e3_laptop" }
+- { grade: "E4", asset_type: "laptop", spec: "32GB RAM, i7/Ryzen 7 class", policy_id: "entitlement_e4_laptop" }
+- { grade: "E4", asset_type: "monitor", spec: "27in external monitor", policy_id: "entitlement_e4_monitor" }
+- { grade: "E5", asset_type: "laptop", spec: "32GB RAM, i7/Ryzen 7 class", policy_id: "entitlement_e5_laptop" }
+- { grade: "E5", asset_type: "monitor", spec: "27in external monitor", policy_id: "entitlement_e5_monitor" }

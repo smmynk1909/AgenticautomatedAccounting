@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "entitlements.yaml",
+  "type": "object",
+  "required": ["asset_high_value_threshold_inr", "grades"],
+  "properties": {
+    "asset_high_value_threshold_inr": { "type": "number", "exclusiveMinimum": 0 },
+    "grades": { "type": "object", "minProperties": 1 },
+    "auto_approved_replacements": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["item", "max_value_inr"],
+        "properties": {
+          "item": { "type": "string" },
+          "max_value_inr": { "type": "number", "exclusiveMinimum": 0 }
+        }
+      }
+    }
+  }
+}

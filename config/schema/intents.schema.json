@@ -1,0 +1,19 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "intents.yaml",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "required": ["intent", "agent", "payload_model", "gate", "sla_hours"],
+    "additionalProperties": false,
+    "properties": {
+      "intent": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+      "agent": { "type": "string", "enum": ["ORCH-0", "ADM-1", "HR-1", "OPS-1", "FIN-1", "SUP-1"] },
+      "payload_model": { "type": "string" },
+      "gate": { "type": ["string", "null"] },
+      "conditional": { "type": "boolean" },
+      "composite": { "type": "boolean" },
+      "sla_hours": { "type": "number", "exclusiveMinimum": 0 }
+    }
+  }
+}

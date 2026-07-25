@@ -1,0 +1,189 @@
+# Intent Registry — doc 02 §5 / doc 11 §8.
+# `gate: null` = never approval-gated. `conditional: true` on a gate means the
+# gate only fires when the *agent's own policy check* (not the LLM) decides
+# the payload crosses a threshold (see the referenced doc section) — ORCH-0's
+# code-side validation still treats `gate` as authoritative for whether the
+# task *can ever* require approval, but the per-instance decision is made by
+# the owning agent's deterministic policy node, not by the LLM plan.
+# `payload_model` names resolve to classes in shared/awp_shared/intent_models.py.
+
+- intent: issue_device
+  agent: ADM-1
+  payload_model: IssueDeviceIn
+  gate: asset_high_value
+  conditional: true          # doc 03 §2.1: only if asset value > entitlements.yaml threshold
+  sla_hours: 24
+
+- intent: return_device
+  agent: ADM-1
+  payload_model: ReturnDeviceIn
+  gate: null
+  sla_hours: 48
+
+- intent: device_repair
+  agent: ADM-1
+  payload_model: DeviceRepairIn
+  gate: null
+  sla_hours: 72
+
+- intent: add_candidate_record
+  agent: ADM-1
+  payload_model: AddCandidateRecordIn
+  gate: null
+  sla_hours: 24
+
+- intent: update_employee_record
+  agent: ADM-1
+  payload_model: UpdateEmployeeRecordIn
+  gate: record_correction
+  conditional: true          # doc 03 §2.2: only mutating historical/identity fields
+  sla_hours: 24
+
+- intent: dashboard_refresh
+  agent: ADM-1
+  payload_model: DashboardRefreshIn
+  gate: null
+  sla_hours: 1
+
+- intent: source_candidates
+  agent: HR-1
+  payload_model: SourceCandidatesIn
+  gate: null
+  sla_hours: 48
+
+- intent: audit_resume
+  agent: HR-1
+  payload_model: AuditResumeIn
+  gate: null
+  sla_hours: 24
+
+- intent: shortlist_role
+  agent: HR-1
+  payload_model: ShortlistRoleIn
+  gate: shortlist_publish
+  sla_hours: 48
+
+- intent: prepare_negotiation
+  agent: HR-1
+  payload_model: PrepareNegotiationIn
+  gate: null                 # pack itself unrestricted; offer_communication gates the actual send
+  sla_hours: 24
+
+- intent: plan_training
+  agent: HR-1
+  payload_model: PlanTrainingIn
+  gate: training_plan
+  sla_hours: 72
+
+- intent: onboard_employee
+  agent: HR-1
+  payload_model: OnboardEmployeeIn
+  gate: null                 # composite fan-out (doc 00 §5); each child task carries its own gate
+  sla_hours: 120
+  composite: true
+
+- intent: offboard_employee
+  agent: HR-1
+  payload_model: OffboardEmployeeIn
+  gate: null
+  sla_hours: 120
+  composite: true
+
+- intent: project_health_report
+  agent: OPS-1
+  payload_model: ProjectHealthReportIn
+  gate: null
+  sla_hours: 24
+
+- intent: timeline_risk_scan
+  agent: OPS-1
+  payload_model: TimelineRiskScanIn
+  gate: null
+  sla_hours: 24
+
+- intent: assign_employee_project
+  agent: OPS-1
+  payload_model: AssignEmployeeProjectIn
+  gate: allocation_change
+  sla_hours: 48
+
+- intent: code_assist_session
+  agent: OPS-1
+  payload_model: CodeAssistSessionIn
+  gate: null
+  sla_hours: 1
+
+- intent: generate_salary_slips
+  agent: FIN-1
+  payload_model: GenerateSalarySlipsIn
+  gate: slip_reissue
+  sla_hours: 24
+
+- intent: run_payroll
+  agent: FIN-1
+  payload_model: RunPayrollIn
+  gate: payroll_run
+  sla_hours: 24
+
+- intent: record_expense
+  agent: FIN-1
+  payload_model: RecordExpenseIn
+  gate: expense_posting
+  conditional: true          # doc 06 §2.2: only if amount > 25000 or extraction confidence < 0.8
+  sla_hours: 48
+
+- intent: create_invoice
+  agent: FIN-1
+  payload_model: CreateInvoiceIn
+  gate: invoice_issue
+  sla_hours: 24
+
+- intent: compute_tax
+  agent: FIN-1
+  payload_model: ComputeTaxIn
+  gate: null
+  sla_hours: 24
+
+- intent: month_close
+  agent: FIN-1
+  payload_model: MonthCloseIn
+  gate: period_close
+  sla_hours: 120
+  composite: true
+
+- intent: financial_requirement_report
+  agent: FIN-1
+  payload_model: FinancialRequirementReportIn
+  gate: null
+  sla_hours: 24
+
+- intent: create_ticket
+  agent: SUP-1
+  payload_model: CreateTicketIn
+  gate: null
+  sla_hours: 1
+
+- intent: escalate_ticket
+  agent: SUP-1
+  payload_model: EscalateTicketIn
+  gate: null
+  sla_hours: 1
+
+- intent: cross_dept_request
+  agent: SUP-1
+  payload_model: CrossDeptRequestIn
+  gate: null
+  sla_hours: 4
+
+- intent: sla_report
+  agent: SUP-1
+  payload_model: SlaReportIn
+  gate: null
+  sla_hours: 24
+
+- intent: quarterly_review_pack
+  agent: ORCH-0
+  payload_model: QuarterlyReviewPackIn
+  gate: null
+  sla_hours: 168
+  composite: true

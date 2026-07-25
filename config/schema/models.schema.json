@@ -1,0 +1,39 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "models.yaml",
+  "type": "object",
+  "required": ["gateway_url", "pool", "bindings", "sampling"],
+  "properties": {
+    "gateway_url": { "type": "string" },
+    "hard_prompt_budget_tokens": { "type": "integer" },
+    "pool": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "object",
+        "required": ["ollama_name", "role", "context_window"],
+        "properties": {
+          "ollama_name": { "type": "string" },
+          "role": { "type": "string" },
+          "context_window": { "type": "integer", "exclusiveMinimum": 0 },
+          "introduced_sprint": { "type": "integer" }
+        }
+      }
+    },
+    "bindings": { "type": "object", "minProperties": 1 },
+    "sampling": {
+      "type": "object",
+      "required": ["plan", "classify", "draft", "extract", "code"],
+      "additionalProperties": {
+        "type": "object",
+        "required": ["temperature", "top_p", "max_tokens", "json_forced"],
+        "properties": {
+          "temperature": { "type": "number", "minimum": 0 },
+          "top_p": { "type": "number", "minimum": 0, "maximum": 1 },
+          "max_tokens": { "type": "integer", "exclusiveMinimum": 0 },
+          "json_forced": { "type": "boolean" }
+        }
+      }
+    }
+  }
+}

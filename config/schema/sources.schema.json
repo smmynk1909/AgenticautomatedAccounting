@@ -1,0 +1,25 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "sources.yaml",
+  "type": "object",
+  "required": ["sources"],
+  "properties": {
+    "sources": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "kind", "enabled"],
+        "properties": {
+          "id": { "type": "string" },
+          "kind": { "type": "string", "enum": ["internal", "file", "api"] },
+          "enabled": { "type": "boolean" },
+          "notes": { "type": "string" },
+          "auth_ref": { "type": "string" },
+          "rate_limit_rpm": { "type": "integer" },
+          "tos_ref": { "type": "string" },
+          "consent_required": { "type": "boolean" }
+        }
+      }
+    }
+  }
+}

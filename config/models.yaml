@@ -1,0 +1,44 @@
+# Model pool — doc 01, served via Ollama per DEVIATIONS.md #1 instead of the
+# vLLM/nginx model-gw the docs specify. `gateway_url` is Ollama's
+# OpenAI-compatible endpoint directly; no per-model port split needed since
+# Ollama multiplexes by model name on one port.
+gateway_url: ${MODEL_GATEWAY_URL}   # resolved from .env at boot, default http://localhost:11434/v1
+
+pool:
+  M-GEN:
+    ollama_name: qwen2.5:7b-instruct
+    role: "All department agents' reasoning/tool-calling (planner)"
+    context_window: 32768
+  M-CODE:
+    ollama_name: qwen2.5-coder:7b-instruct
+    role: "OPS-1 coding assistant"
+    context_window: 32768
+    introduced_sprint: 9
+  M-SMALL:
+    ollama_name: qwen2.5:3b-instruct
+    role: "Cheap classification/routing/extraction"
+    context_window: 8192
+  M-EMB:
+    ollama_name: bge-m3
+    role: "RAG embeddings (mcp-search)"
+    context_window: 8192
+    introduced_sprint: 7
+
+# Default agent model bindings — doc 02 §"Model binding" lines, agent by agent.
+bindings:
+  ORCH-0: { planner: M-GEN, router: M-SMALL }
+  ADM-1: { planner: M-GEN, extractor: M-SMALL }
+  HR-1: { planner: M-GEN, extractor: M-SMALL }
+  OPS-1: { planner: M-GEN, coder: M-CODE, classifier: M-SMALL }
+  FIN-1: { planner: M-GEN, extractor: M-SMALL }
+  SUP-1: { classifier: M-SMALL, summarizer: M-GEN }
+
+# Sampling defaults per task type — doc 01 §3.
+sampling:
+  plan: { temperature: 0.1, top_p: 0.9, max_tokens: 1024, json_forced: true }
+  classify: { temperature: 0.0, top_p: 1.0, max_tokens: 128, json_forced: true }
+  draft: { temperature: 0.6, top_p: 0.95, max_tokens: 2048, json_forced: false }
+  extract: { temperature: 0.0, top_p: 1.0, max_tokens: 1536, json_forced: true }
+  code: { temperature: 0.2, top_p: 0.95, max_tokens: 4096, json_forced: false }
+
+hard_prompt_budget_tokens: 12000   # doc 01 §4
