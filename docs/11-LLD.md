@@ -10,34 +10,60 @@ Python 3.12 · Pydantic v2 · SQLAlchemy 2 (async) + Alembic · FastAPI · LangG
 
 ### 1.1 Core schemas (`awp_shared/schemas.py`)
 ```python
-class Priority(str, Enum): P1="P1"; P2="P2"; P3="P3"; P4="P4"
+class Priority(str, Enum):
+    P1 = "P1"
+    P2 = "P2"
+    P3 = "P3"
+    P4 = "P4"
+
+
 class TaskStatus(str, Enum):
-    PENDING="pending"; DISPATCHED="dispatched"; IN_PROGRESS="in_progress"
-    BLOCKED="blocked"; AWAITING_APPROVAL="awaiting_approval"; DONE="done"; FAILED="failed"
+    PENDING = "pending"
+    DISPATCHED = "dispatched"
+    IN_PROGRESS = "in_progress"
+    BLOCKED = "blocked"
+    AWAITING_APPROVAL = "awaiting_approval"
+    DONE = "done"
+    FAILED = "failed"
+
 
 class TaskEnvelope(BaseModel):
     task_id: UUID = Field(default_factory=uuid4)
     parent_task_id: UUID | None = None
-    from_agent: AgentId          # Enum: ORCH0, ADM1, HR1, OPS1, FIN1, SUP1, HUMAN, SCHEDULER
+    from_agent: AgentId  # Enum: ORCH0, ADM1, HR1, OPS1, FIN1, SUP1, HUMAN, SCHEDULER
     to_agent: AgentId
-    intent: str                  # must exist in IntentRegistry
-    payload: dict                # validated against intent's payload model at dispatch
+    intent: str  # must exist in IntentRegistry
+    payload: dict  # validated against intent's payload model at dispatch
     priority: Priority = Priority.P3
     sla_deadline: datetime | None
-    requires_approval: bool      # overwritten from gates policy at dispatch (never trusted)
+    requires_approval: bool  # overwritten from gates policy at dispatch (never trusted)
     trace_id: UUID
-    idempotency_key: str         # f"{task_id}"
+    idempotency_key: str  # f"{task_id}"
     created_at: datetime
 
+
 class TaskResult(BaseModel):
-    task_id: UUID; status: TaskStatus; summary: str
-    artifacts: list[ArtifactRef] = []      # {kind, uri|id, scope}
+    task_id: UUID
+    status: TaskStatus
+    summary: str
+    artifacts: list[ArtifactRef] = []  # {kind, uri|id, scope}
     error: ErrorInfo | None = None
 
+
 class ErrorInfo(BaseModel):
-    code: Literal["VALIDATION","NOT_FOUND","PERMISSION_DENIED","CONFLICT",
-                  "APPROVAL_REQUIRED","UPSTREAM","INTERNAL","TIMEOUT"]
-    message: str; retryable: bool; details: dict = {}
+    code: Literal[
+        "VALIDATION",
+        "NOT_FOUND",
+        "PERMISSION_DENIED",
+        "CONFLICT",
+        "APPROVAL_REQUIRED",
+        "UPSTREAM",
+        "INTERNAL",
+        "TIMEOUT",
+    ]
+    message: str
+    retryable: bool
+    details: dict = {}
 ```
 
 ### 1.2 Auth (`awp_shared/auth.py`)
@@ -92,6 +118,8 @@ class MCP:
 ```python
 def wrap_untrusted(label: str, content: str) -> str:
     return f"<untrusted source='{label}'>\n{escape(content)}\n</untrusted>"
+
+
 # Standing system-prompt rule references this tag. All ticket bodies, resume text,
 # invoice text, inbound email MUST pass through wrap_untrusted before prompt assembly.
 ```
@@ -134,17 +162,19 @@ Per-agent graphs (02–07 docs) are compositions of these + agent-specific nodes
 ```python
 def make_server(name: str, scopes_cfg: Path) -> FastMCP:
     app = FastMCP(name)
-    app.middleware(auth_mw)        # verify_jwt → Principal in ctx
-    app.middleware(scope_mw)       # tool→required scopes from scopes.yaml
+    app.middleware(auth_mw)  # verify_jwt → Principal in ctx
+    app.middleware(scope_mw)  # tool→required scopes from scopes.yaml
     app.middleware(audit_mw)
-    app.middleware(idempotency_mw) # write tools: cache result by key 7d
+    app.middleware(idempotency_mw)  # write tools: cache result by key 7d
     return app
+
 
 # Tool pattern (every tool):
 @app.tool()
 async def assign_asset(args: AssignAssetIn, ctx: Ctx) -> AssignAssetOut:
-    if needs_gate(args): verify_approval_token(ctx.approval_token, "asset_high_value", args.model_dump())
-    async with uow() as u:                        # SQLAlchemy async unit-of-work
+    if needs_gate(args):
+        verify_approval_token(ctx.approval_token, "asset_high_value", args.model_dump())
+    async with uow() as u:  # SQLAlchemy async unit-of-work
         ...
 ```
 DB access via repository classes per aggregate (`EmployeeRepo`, `AssetRepo`, `TicketRepo`, `LedgerRepo` …) — no raw SQL in tools except reporting views.

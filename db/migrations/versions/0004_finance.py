@@ -20,8 +20,12 @@ depends_on = None
 
 def _audit_cols() -> list[sa.Column]:
     return [
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
-        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+        sa.Column(
+            "created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()
+        ),
+        sa.Column(
+            "updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()
+        ),
         sa.Column("deleted_at", sa.DateTime(timezone=True), nullable=True),
     ]
 
@@ -46,7 +50,12 @@ def upgrade() -> None:
 
     op.create_table(
         "journal_entries",
-        sa.Column("id", pg.UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")),
+        sa.Column(
+            "id",
+            pg.UUID(as_uuid=True),
+            primary_key=True,
+            server_default=sa.text("gen_random_uuid()"),
+        ),
         sa.Column("date", sa.Date(), nullable=False),
         sa.Column("period", sa.String(7), sa.ForeignKey("periods.period"), nullable=False),
         sa.Column("ref", sa.String(120), nullable=True),
@@ -58,8 +67,15 @@ def upgrade() -> None:
 
     op.create_table(
         "journal_lines",
-        sa.Column("id", pg.UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")),
-        sa.Column("entry_id", pg.UUID(as_uuid=True), sa.ForeignKey("journal_entries.id"), nullable=False),
+        sa.Column(
+            "id",
+            pg.UUID(as_uuid=True),
+            primary_key=True,
+            server_default=sa.text("gen_random_uuid()"),
+        ),
+        sa.Column(
+            "entry_id", pg.UUID(as_uuid=True), sa.ForeignKey("journal_entries.id"), nullable=False
+        ),
         sa.Column("account", sa.String(10), sa.ForeignKey("accounts.code"), nullable=False),
         sa.Column("dr", sa.Numeric(14, 2), nullable=False, server_default="0"),
         sa.Column("cr", sa.Numeric(14, 2), nullable=False, server_default="0"),
@@ -103,7 +119,12 @@ def upgrade() -> None:
 
     op.create_table(
         "payroll_runs",
-        sa.Column("id", pg.UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")),
+        sa.Column(
+            "id",
+            pg.UUID(as_uuid=True),
+            primary_key=True,
+            server_default=sa.text("gen_random_uuid()"),
+        ),
         sa.Column("month", sa.String(7), nullable=False),  # "YYYY-MM"
         sa.Column("snapshot_id", pg.UUID(as_uuid=True), nullable=False),
         sa.Column("register", pg.JSONB(), nullable=False, server_default="{}"),
@@ -115,7 +136,12 @@ def upgrade() -> None:
 
     op.create_table(
         "invoices",
-        sa.Column("id", pg.UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")),
+        sa.Column(
+            "id",
+            pg.UUID(as_uuid=True),
+            primary_key=True,
+            server_default=sa.text("gen_random_uuid()"),
+        ),
         # doc 11 §7: gapless per-FY sequential number, assigned inside
         # issue_invoice's transaction via a row lock on fy_counters — null
         # until issued (draft invoices have no number yet).
@@ -138,15 +164,24 @@ def upgrade() -> None:
         # (sequences can skip values on rollback; this can't).
         sa.Column("fy", sa.String(7), primary_key=True),
         sa.Column("invoice_seq", sa.Integer(), nullable=False, server_default="0"),
-        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+        sa.Column(
+            "updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()
+        ),
     )
 
     op.create_table(
         "expenses",
-        sa.Column("id", pg.UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")),
+        sa.Column(
+            "id",
+            pg.UUID(as_uuid=True),
+            primary_key=True,
+            server_default=sa.text("gen_random_uuid()"),
+        ),
         sa.Column("vendor", sa.String(160), nullable=True),
         sa.Column("doc_uri", sa.Text(), nullable=False),
-        sa.Column("extract", pg.JSONB(), nullable=False, server_default="{}"),  # doc 06 §2.2 extraction shape
+        sa.Column(
+            "extract", pg.JSONB(), nullable=False, server_default="{}"
+        ),  # doc 06 §2.2 extraction shape
         sa.Column("account", sa.String(10), sa.ForeignKey("accounts.code"), nullable=True),
         sa.Column("cost_center", sa.String(40), nullable=True),
         sa.Column("status", sa.String(20), nullable=False, server_default="pending_review"),
@@ -157,19 +192,34 @@ def upgrade() -> None:
 
     op.create_table(
         "bank_txns",
-        sa.Column("id", pg.UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")),
+        sa.Column(
+            "id",
+            pg.UUID(as_uuid=True),
+            primary_key=True,
+            server_default=sa.text("gen_random_uuid()"),
+        ),
         sa.Column("stmt_id", sa.String(80), nullable=False),
         sa.Column("date", sa.Date(), nullable=False),
         sa.Column("amount", sa.Numeric(14, 2), nullable=False),
         sa.Column("ref", sa.String(160), nullable=True),
-        sa.Column("matched_entry", pg.UUID(as_uuid=True), sa.ForeignKey("journal_entries.id"), nullable=True),
+        sa.Column(
+            "matched_entry",
+            pg.UUID(as_uuid=True),
+            sa.ForeignKey("journal_entries.id"),
+            nullable=True,
+        ),
         *_audit_cols(),
     )
     op.create_index("ix_bank_txns_stmt", "bank_txns", ["stmt_id"])
 
     op.create_table(
         "recurring_expenses",
-        sa.Column("id", pg.UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")),
+        sa.Column(
+            "id",
+            pg.UUID(as_uuid=True),
+            primary_key=True,
+            server_default=sa.text("gen_random_uuid()"),
+        ),
         sa.Column("name", sa.String(160), nullable=False),
         sa.Column("amount", sa.Numeric(14, 2), nullable=False),
         sa.Column("account", sa.String(10), sa.ForeignKey("accounts.code"), nullable=False),
@@ -184,8 +234,15 @@ def upgrade() -> None:
         "tax_tables",
         # doc 06 §6: versioned YAML loaded here with effective-date ranges;
         # FinCore refuses to compute a period without a covering table version.
-        sa.Column("id", pg.UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")),
-        sa.Column("kind", sa.String(40), nullable=False),  # it_slabs|pf|esi|pt_states|gst_rates|tds_sections
+        sa.Column(
+            "id",
+            pg.UUID(as_uuid=True),
+            primary_key=True,
+            server_default=sa.text("gen_random_uuid()"),
+        ),
+        sa.Column(
+            "kind", sa.String(40), nullable=False
+        ),  # it_slabs|pf|esi|pt_states|gst_rates|tds_sections
         sa.Column("version", sa.String(20), nullable=False),
         sa.Column("effective_from", sa.Date(), nullable=False),
         sa.Column("effective_to", sa.Date(), nullable=True),

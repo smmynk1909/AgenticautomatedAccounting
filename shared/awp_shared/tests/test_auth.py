@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import jwt
 import pytest
@@ -70,7 +70,11 @@ async def test_approval_token_happy_path() -> None:
     redis = _redis()
     payload = {"register_id": "r1", "totals": {"net": 100000}}
     token = mint_approval_token(
-        gate="payroll_run", payload=payload, approvers=["finance_head", "director"], ttl_h=24, jti="jti-1"
+        gate="payroll_run",
+        payload=payload,
+        approvers=["finance_head", "director"],
+        ttl_h=24,
+        jti="jti-1",
     )
     verified = await verify_approval_token(token, "payroll_run", payload, redis=redis)
     assert verified.jti == "jti-1"
@@ -81,7 +85,9 @@ async def test_approval_token_happy_path() -> None:
 async def test_approval_token_rejects_replay() -> None:
     redis = _redis()
     payload = {"a": 1}
-    token = mint_approval_token(gate="invoice_issue", payload=payload, approvers=["finance_head"], ttl_h=24, jti="jti-2")
+    token = mint_approval_token(
+        gate="invoice_issue", payload=payload, approvers=["finance_head"], ttl_h=24, jti="jti-2"
+    )
     await verify_approval_token(token, "invoice_issue", payload, redis=redis)
     with pytest.raises(ApprovalRequiredError, match="already used"):
         await verify_approval_token(token, "invoice_issue", payload, redis=redis)
@@ -91,7 +97,11 @@ async def test_approval_token_rejects_replay() -> None:
 async def test_approval_token_rejects_payload_drift() -> None:
     redis = _redis()
     token = mint_approval_token(
-        gate="invoice_issue", payload={"amount": 100}, approvers=["finance_head"], ttl_h=24, jti="jti-3"
+        gate="invoice_issue",
+        payload={"amount": 100},
+        approvers=["finance_head"],
+        ttl_h=24,
+        jti="jti-3",
     )
     with pytest.raises(ApprovalRequiredError, match="payload hash mismatch"):
         await verify_approval_token(token, "invoice_issue", {"amount": 999}, redis=redis)
@@ -113,7 +123,7 @@ async def test_approval_token_rejects_expired(monkeypatch: pytest.MonkeyPatch) -
 
     redis = _redis()
     payload = {"a": 1}
-    now = int(datetime.now(timezone.utc).timestamp())
+    now = int(datetime.now(UTC).timestamp())
     claims = {
         "jti": "jti-5",
         "gate": "invoice_issue",
@@ -132,7 +142,7 @@ async def test_approval_token_rejects_expired(monkeypatch: pytest.MonkeyPatch) -
 async def test_approval_token_rejects_forged_signature() -> None:
     redis = _redis()
     payload = {"a": 1}
-    now = int(datetime.now(timezone.utc).timestamp())
+    now = int(datetime.now(UTC).timestamp())
     claims = {
         "jti": "jti-6",
         "gate": "invoice_issue",

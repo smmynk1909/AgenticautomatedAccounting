@@ -1,13 +1,12 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
-from fakeredis.aioredis import FakeRedis
-
+from awp_mcp_base.uow import UnitOfWork
 from awp_shared.auth import mint_service_jwt
 from awp_shared.errors import PermissionDeniedError, ValidationError
+from fakeredis.aioredis import FakeRedis
 
 from awp_mcp_audit.server import make_audit_server
-from awp_mcp_base.uow import UnitOfWork
 
 
 def _headers(token: str) -> dict[str, str]:
@@ -101,7 +100,7 @@ async def test_export_audit_reports_verification_per_day(uow: UnitOfWork) -> Non
 
     await server.dispatch_raw("log_event", _payload(), _headers(write_token))
 
-    today = datetime.now(timezone.utc).date().isoformat()
+    today = datetime.now(UTC).date().isoformat()
     result = await server.dispatch_raw(
         "export_audit", {"start_day": today, "end_day": today}, _headers(admin_token)
     )

@@ -12,14 +12,12 @@ from __future__ import annotations
 from datetime import date, timedelta
 from typing import Any
 
-from redis.asyncio import Redis
-
-from awp_shared.audit_mw import AuditEvent
-from awp_shared.errors import ValidationError
-
 from awp_mcp_base.ctx import Ctx
 from awp_mcp_base.server import AwpMcpServer, make_server
 from awp_mcp_base.uow import UnitOfWork
+from awp_shared.audit_mw import AuditEvent
+from awp_shared.errors import ValidationError
+from redis.asyncio import Redis
 
 from awp_mcp_audit.spool import build_self_spooling_sink
 from awp_mcp_audit.store import EventStore

@@ -15,7 +15,8 @@ from typing import Any
 
 import httpx
 import structlog
-from pydantic import BaseModel, ValidationError as PydanticValidationError
+from pydantic import BaseModel
+from pydantic import ValidationError as PydanticValidationError
 
 from awp_shared.errors import UpstreamError, ValidationError
 
@@ -42,7 +43,7 @@ class SamplingProfile(BaseModel):
     max_tokens: int = 1024
 
     @classmethod
-    def for_task(cls, task: str) -> "SamplingProfile":
+    def for_task(cls, task: str) -> SamplingProfile:
         temp, top_p, max_tokens = SAMPLING.get(task, SAMPLING["plan"])
         return cls(temperature=temp, top_p=top_p, max_tokens=max_tokens)
 
@@ -101,8 +102,11 @@ class LLM:
         guided_json: type[BaseModel] | None = None,
         **overrides: Any,
     ) -> LLMResponse:
-        profile = SamplingProfile.for_task(overrides.pop("profile", None) or "plan") \
-            if overrides.get("profile") else self._defaults
+        profile = (
+            SamplingProfile.for_task(overrides.pop("profile", None) or "plan")
+            if overrides.get("profile")
+            else self._defaults
+        )
         body: dict[str, Any] = {
             "model": self._model,
             "messages": messages,
@@ -158,7 +162,9 @@ class LLM:
                 args = json.loads(fn.get("arguments", "{}"))
             except json.JSONDecodeError:
                 args = {"_raw": fn.get("arguments", "")}
-            tool_calls.append(ToolCall(id=tc.get("id", ""), name=fn.get("name", ""), arguments=args))
+            tool_calls.append(
+                ToolCall(id=tc.get("id", ""), name=fn.get("name", ""), arguments=args)
+            )
 
         return LLMResponse(content=choice.get("content"), tool_calls=tool_calls, raw=raw)
 

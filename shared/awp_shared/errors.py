@@ -27,7 +27,7 @@ class AwpError(Exception):
         )
 
     @classmethod
-    def from_error_info(cls, info: ErrorInfo) -> "AwpError":
+    def from_error_info(cls, info: ErrorInfo) -> AwpError:
         return _CODE_TO_EXC.get(info.code, InternalError)(info.message, details=info.details)
 
 

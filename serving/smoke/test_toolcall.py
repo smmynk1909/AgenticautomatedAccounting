@@ -13,9 +13,8 @@ import asyncio
 import os
 import sys
 
-from pydantic import BaseModel
-
 from awp_shared.llm import LLM, ToolSchema
+from pydantic import BaseModel
 
 GET_EMPLOYEE_TOOL = ToolSchema(
     function={
@@ -52,8 +51,10 @@ async def check_tool_call(llm: LLM) -> None:
         tools=[GET_EMPLOYEE_TOOL],
     )
     if not resp.tool_calls:
-        print(f"  WARNING: model did not emit a tool call (content={resp.content!r}). "
-              f"Ollama tool-calling reliability varies by model/version — see DEVIATIONS.md #1.")
+        print(
+            f"  WARNING: model did not emit a tool call (content={resp.content!r}). "
+            f"Ollama tool-calling reliability varies by model/version — see DEVIATIONS.md #1."
+        )
         return
     call = resp.tool_calls[0]
     assert call.name == "get_employee", f"unexpected tool name: {call.name}"

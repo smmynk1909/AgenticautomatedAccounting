@@ -33,8 +33,8 @@ jobs:
       - name: ruff (format check)
         run: uv run ruff format --check .
 
-      - name: mypy — shared, mcps/_base, mcp-audit, mcp-approvals
-        run: uv run mypy shared mcps/_base mcps/audit mcps/approvals
+      - name: mypy — shared, mcps/_base, mcp-audit, mcp-approvals, mcp-erp
+        run: uv run mypy -p awp_shared -p awp_mcp_base -p awp_mcp_audit -p awp_mcp_approvals -p awp_mcp_erp
 
       # Unit: schemas/auth/bus/llm/mcpc/trust/config/audit_mw/intent_models
       # (doc 12 §4 "unit (shared,fincore)" — fincore lands Sprint 5).

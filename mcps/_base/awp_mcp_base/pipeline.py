@@ -18,11 +18,10 @@ import json
 from collections.abc import Awaitable, Callable
 from typing import Any
 
-from redis.asyncio import Redis
-
 from awp_shared.audit_mw import AuditMiddleware, AuditSink
 from awp_shared.auth import Principal, require_scopes, verify_jwt
 from awp_shared.errors import ValidationError
+from redis.asyncio import Redis
 
 from awp_mcp_base.ctx import Ctx
 
@@ -89,7 +88,9 @@ class ToolPipeline:
             approval_token=approval_token,
         )
 
-        mw = AuditMiddleware(self._audit_sink, agent_id=principal.sub, server_name=self._server_name)
+        mw = AuditMiddleware(
+            self._audit_sink, agent_id=principal.sub, server_name=self._server_name
+        )
 
         async def call_fn() -> Any:
             return await handler(payload, ctx)
@@ -105,7 +106,7 @@ class ToolPipeline:
         auth_header = _get_header(headers, "Authorization") or ""
         if not auth_header.startswith("Bearer "):
             raise ValidationError("missing Authorization bearer token")
-        return verify_jwt(auth_header[len("Bearer "):])
+        return verify_jwt(auth_header[len("Bearer ") :])
 
     def _authorize(self, principal: Principal, tool_name: str) -> None:
         needed = self._get_required_scopes(self._server_name, tool_name)

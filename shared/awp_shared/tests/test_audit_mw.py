@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -14,7 +15,13 @@ from awp_shared.audit_mw import (
 
 def _event(tool: str = "log_event") -> AuditEvent:
     return AuditEvent(
-        agent_id="FIN-1", server="finance", tool=tool, input_hash="a", output_hash="b", latency_ms=1.0, ok=True
+        agent_id="FIN-1",
+        server="finance",
+        tool=tool,
+        input_hash="a",
+        output_hash="b",
+        latency_ms=1.0,
+        ok=True,
     )
 
 
@@ -103,9 +110,9 @@ async def test_audit_middleware_emits_event_on_failure_and_reraises() -> None:
 
 class _FakeMcpClient:
     def __init__(self) -> None:
-        self.calls: list[tuple[str, str, dict]] = []
+        self.calls: list[tuple[str, str, Any]] = []
 
-    async def call(self, server: str, tool: str, args, **kwargs) -> dict:
+    async def call(self, server: str, tool: str, args: Any, **kwargs: Any) -> dict[str, Any]:
         self.calls.append((server, tool, args))
         return {"seq": 1}
 

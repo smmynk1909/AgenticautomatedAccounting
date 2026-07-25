@@ -9,14 +9,12 @@ from __future__ import annotations
 
 from typing import Any
 
-from redis.asyncio import Redis
-
-from awp_shared.audit_mw import AuditSink
-from awp_shared.errors import NotFoundError, ValidationError
-
 from awp_mcp_base.ctx import Ctx
 from awp_mcp_base.server import AwpMcpServer, make_server
 from awp_mcp_base.uow import UnitOfWork
+from awp_shared.audit_mw import AuditSink
+from awp_shared.errors import NotFoundError, ValidationError
+from redis.asyncio import Redis
 
 from awp_mcp_approvals.gates import resolve_gate
 from awp_mcp_approvals.store import ApprovalStore

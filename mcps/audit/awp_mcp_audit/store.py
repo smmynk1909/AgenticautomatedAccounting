@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
+from awp_shared.audit_mw import AuditEvent
 from sqlalchemy import insert, select
 from sqlalchemy.ext.asyncio import AsyncSession
-
-from awp_shared.audit_mw import AuditEvent
 
 from awp_mcp_audit.chain import event_day, merkle_root, record_hash, record_hash_from_row
 from awp_mcp_audit.tables import audit_day_roots, audit_events
@@ -75,7 +74,7 @@ class EventStore:
         # recomputed from current row values, not the stored `record_hash`
         # column — see chain.record_hash_from_row's docstring for why.
         root = merkle_root([record_hash_from_row(e) for e in events])
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         existing = (
             await self.session.execute(select(audit_day_roots).where(audit_day_roots.c.day == day))
@@ -96,6 +95,12 @@ class EventStore:
 
     async def get_day_root(self, day: str) -> dict[str, Any] | None:
         row = (
-            await self.session.execute(select(audit_day_roots).where(audit_day_roots.c.day == day))
-        ).mappings().first()
+            (
+                await self.session.execute(
+                    select(audit_day_roots).where(audit_day_roots.c.day == day)
+                )
+            )
+            .mappings()
+            .first()
+        )
         return dict(row) if row else None

@@ -82,7 +82,9 @@ class MCP:
         self, url: str, tool: str, payload: dict[str, Any], headers: dict[str, str]
     ) -> dict[str, Any]:
         try:
-            r = await self._client.post(f"{url.rstrip('/')}/tools/{tool}", json=payload, headers=headers)
+            r = await self._client.post(
+                f"{url.rstrip('/')}/tools/{tool}", json=payload, headers=headers
+            )
         except httpx.TransportError as exc:
             raise McpTransportError(str(exc)) from exc
 

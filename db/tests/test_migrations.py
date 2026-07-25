@@ -64,15 +64,44 @@ def test_expected_tables_and_columns_exist(migrated_db_url: str) -> None:
     tables = set(inspector.get_table_names())
 
     expected = {
-        "departments", "roles", "employees", "candidates", "skills_master",
-        "salary_bands", "comp_structures", "assets", "asset_assignments",
-        "entitlement_matrix", "tickets", "ticket_events", "orchestrator_tasks",
-        "accounts", "periods", "journal_entries", "journal_lines", "payroll_runs",
-        "invoices", "fy_counters", "expenses", "bank_txns", "recurring_expenses",
-        "tax_tables", "projects", "milestones", "allocations", "work_logs",
-        "training_catalog", "training_plans", "training_progress",
-        "audit_events", "audit_day_roots", "approvals", "dashboard_items",
-        "kb_documents", "agent_checkpoints", "processed_keys",
+        "departments",
+        "roles",
+        "employees",
+        "candidates",
+        "skills_master",
+        "salary_bands",
+        "comp_structures",
+        "assets",
+        "asset_assignments",
+        "entitlement_matrix",
+        "tickets",
+        "ticket_events",
+        "orchestrator_tasks",
+        "accounts",
+        "periods",
+        "journal_entries",
+        "journal_lines",
+        "payroll_runs",
+        "invoices",
+        "fy_counters",
+        "expenses",
+        "bank_txns",
+        "recurring_expenses",
+        "tax_tables",
+        "projects",
+        "milestones",
+        "allocations",
+        "work_logs",
+        "training_catalog",
+        "training_plans",
+        "training_progress",
+        "audit_events",
+        "audit_day_roots",
+        "approvals",
+        "dashboard_items",
+        "kb_documents",
+        "agent_checkpoints",
+        "processed_keys",
     }
     missing = expected - tables
     assert not missing, f"migrations did not create expected tables: {missing}"
@@ -90,8 +119,14 @@ def test_trg_balance_accepts_balanced_entry(migrated_db_url: str) -> None:
     engine = sa.create_engine(migrated_db_url)
     with engine.begin() as conn:
         conn.execute(sa.text("INSERT INTO periods (period, status) VALUES ('2026-07', 'open')"))
-        conn.execute(sa.text("INSERT INTO accounts (code, name, type) VALUES ('9001', 'Test Bank', 'asset')"))
-        conn.execute(sa.text("INSERT INTO accounts (code, name, type) VALUES ('9002', 'Test Expense', 'expense')"))
+        conn.execute(
+            sa.text("INSERT INTO accounts (code, name, type) VALUES ('9001', 'Test Bank', 'asset')")
+        )
+        conn.execute(
+            sa.text(
+                "INSERT INTO accounts (code, name, type) VALUES ('9002', 'Test Expense', 'expense')"
+            )
+        )
         entry_id = conn.execute(
             sa.text(
                 "INSERT INTO journal_entries (date, period, posted_by) "
@@ -99,11 +134,17 @@ def test_trg_balance_accepts_balanced_entry(migrated_db_url: str) -> None:
             )
         ).scalar_one()
         conn.execute(
-            sa.text("INSERT INTO journal_lines (entry_id, account, dr, cr) VALUES (:e, '9002', 100.00, 0)"),
+            sa.text(
+                "INSERT INTO journal_lines (entry_id, account, dr, cr) "
+                "VALUES (:e, '9002', 100.00, 0)"
+            ),
             {"e": entry_id},
         )
         conn.execute(
-            sa.text("INSERT INTO journal_lines (entry_id, account, dr, cr) VALUES (:e, '9001', 0, 100.00)"),
+            sa.text(
+                "INSERT INTO journal_lines (entry_id, account, dr, cr) "
+                "VALUES (:e, '9001', 0, 100.00)"
+            ),
             {"e": entry_id},
         )
     # no exception on commit == the trigger accepted a balanced entry
@@ -121,11 +162,17 @@ def test_trg_balance_rejects_unbalanced_entry(migrated_db_url: str) -> None:
                 )
             ).scalar_one()
             conn.execute(
-                sa.text("INSERT INTO journal_lines (entry_id, account, dr, cr) VALUES (:e, '9002', 100.00, 0)"),
+                sa.text(
+                    "INSERT INTO journal_lines (entry_id, account, dr, cr) "
+                    "VALUES (:e, '9002', 100.00, 0)"
+                ),
                 {"e": entry_id},
             )
             conn.execute(
-                sa.text("INSERT INTO journal_lines (entry_id, account, dr, cr) VALUES (:e, '9001', 0, 50.00)"),
+                sa.text(
+                    "INSERT INTO journal_lines (entry_id, account, dr, cr) "
+                    "VALUES (:e, '9001', 0, 50.00)"
+                ),
                 {"e": entry_id},
             )
             # transaction commits (and the DEFERRED trigger fires) on `with` exit

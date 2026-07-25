@@ -4,7 +4,7 @@ COMPOSE = docker compose -f deploy/docker-compose.dev.yml --env-file .env
 
 dev: up models migrate seed  ## full local bring-up
 
-up:  ## start infra + Sprint-1 MCP servers
+up:  ## start infra + MCP servers (mcp-audit, mcp-approvals, mcp-erp)
 	$(COMPOSE) up -d
 
 down:  ## stop and remove containers (keeps volumes)
@@ -14,14 +14,14 @@ models:  ## pull the Ollama model pool (config/models.yaml)
 	bash serving/fetch_models.sh
 
 migrate:  ## alembic upgrade head
-	uv run --project db alembic -c db/alembic.ini upgrade head
+	uv run alembic -c db/alembic.ini upgrade head
 
 seed:  ## generate + load synthetic company data
-	uv run --project db python -m db.seed.generate_synthetic
+	uv run python db/seed/generate_synthetic.py
 
 test:  ## lint + typecheck + unit + contract tests
 	uv run ruff check .
-	uv run mypy shared mcps/_base mcps/audit mcps/approvals
+	uv run mypy -p awp_shared -p awp_mcp_base -p awp_mcp_audit -p awp_mcp_approvals -p awp_mcp_erp
 	uv run pytest -q
 
 smoke:  ## model-gateway tool-call round trip (needs `make up models`)

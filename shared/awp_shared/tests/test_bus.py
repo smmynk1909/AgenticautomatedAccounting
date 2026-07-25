@@ -1,3 +1,5 @@
+from typing import cast
+
 import pytest
 from fakeredis.aioredis import FakeRedis
 
@@ -11,7 +13,10 @@ def _redis() -> FakeRedis:
 
 def _envelope(**overrides: object) -> TaskEnvelope:
     defaults: dict[str, object] = dict(
-        from_agent=AgentId.ORCH0, to_agent=AgentId.FIN1, intent="run_payroll", payload={"month": "2026-07"}
+        from_agent=AgentId.ORCH0,
+        to_agent=AgentId.FIN1,
+        intent="run_payroll",
+        payload={"month": "2026-07"},
     )
     defaults.update(overrides)
     return TaskEnvelope(**defaults)  # type: ignore[arg-type]
@@ -43,7 +48,9 @@ async def test_consume_calls_handler_once_and_acks() -> None:
     # one non-blocking pass: read is available immediately, block=0 avoids test hangs
     stream = stream_name(AgentId.FIN1)
     await bus._ensure_group(stream)
-    resp = await redis.xreadgroup("workers", "test-consumer", {stream: ">"}, count=10, block=None)
+    raw = await redis.xreadgroup("workers", "test-consumer", {stream: ">"}, count=10, block=None)
+    # redis-py's stub return type is a broad union; see bus.py's `cast` for the same reason.
+    resp = cast(list[tuple[str, list[tuple[str, dict[str, str]]]]], raw)
     for _s, messages in resp:
         for msg_id, fields in messages:
             await bus._handle_one(stream, msg_id, fields, handler)

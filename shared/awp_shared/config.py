@@ -16,6 +16,7 @@ from typing import Any
 import jsonschema
 import yaml
 
+
 def _default_config_dir() -> Path:
     # `AWP_CONFIG_DIR` is authoritative when set (always set in containers —
     # see mcps/*/Dockerfile, deploy/docker-compose.dev.yml). The `__file__`
@@ -51,7 +52,7 @@ def _interpolate(value: Any) -> Any:
     return value
 
 
-@functools.lru_cache(maxsize=None)
+@functools.cache
 def load_config(name: str, *, config_dir: Path | None = None) -> Any:
     """Load and schema-validate `config/{name}.yaml`. Cached per process.
 

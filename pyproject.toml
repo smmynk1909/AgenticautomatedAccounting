@@ -8,6 +8,7 @@ dependencies = [
   "awp-db",
   "awp-mcp-audit",
   "awp-mcp-approvals",
+  "awp-mcp-erp",
 ]
 
 [dependency-groups]
@@ -33,6 +34,7 @@ awp-mcp-base = { workspace = true }
 awp-db = { workspace = true }
 awp-mcp-audit = { workspace = true }
 awp-mcp-approvals = { workspace = true }
+awp-mcp-erp = { workspace = true }
 
 [tool.ruff]
 line-length = 100
@@ -47,11 +49,33 @@ strict = true
 namespace_packages = true
 explicit_package_bases = true
 warn_unused_ignores = true
+# Workspace members' package roots — invoke mypy with `-p <module>` (not file
+# paths) so every cross-package import resolves through this list exactly
+# once. Passing file paths instead causes mypy to also treat them as CLI
+# targets alongside the import-resolved copy, i.e. "Source file found twice
+# under different module names".
+mypy_path = "shared:mcps/_base:mcps/audit:mcps/approvals:mcps/erp"
 
 [[tool.mypy.overrides]]
 # Third-party packages that ship no/partial stubs; tighten as coverage improves.
-module = ["mcp.*", "weasyprint.*"]
+# (`mcp` itself is unused — DEVIATIONS.md #6 — nothing to ignore for it.)
+module = ["weasyprint.*", "jsonschema.*", "yaml.*", "opentelemetry.*"]
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+# Test helper code is intentionally looser than production code (doc 12 §3
+# scopes strict mypy at shared/fincore/mcps/_base; the other mcp servers'
+# tests follow that same carve-out) — bare `dict`/`Principal` fixtures and
+# untyped small helpers are fine here, real type errors still get caught.
+module = [
+  "awp_shared.tests.*",
+  "awp_mcp_base.tests.*",
+  "awp_mcp_audit.tests.*",
+  "awp_mcp_approvals.tests.*",
+  "awp_mcp_erp.tests.*",
+]
+disallow_any_generics = false
+disallow_untyped_defs = false
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

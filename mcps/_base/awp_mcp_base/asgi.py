@@ -8,10 +8,9 @@ from __future__ import annotations
 
 from typing import Any
 
+from awp_shared.errors import AwpError
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
-
-from awp_shared.errors import AwpError
 
 from awp_mcp_base.server import AwpMcpServer
 

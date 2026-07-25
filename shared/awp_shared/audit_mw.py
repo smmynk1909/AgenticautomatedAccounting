@@ -16,7 +16,7 @@ import hashlib
 import json
 import time
 from collections.abc import Awaitable, Callable
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Protocol
 
@@ -27,7 +27,7 @@ logger = structlog.get_logger(__name__)
 
 
 def _utcnow() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def hash_payload(payload: Any) -> str:
@@ -75,7 +75,9 @@ class DiskSpool:
     def pending_count(self) -> int:
         if not self._file.exists():
             return 0
-        return sum(1 for line in self._file.read_text(encoding="utf-8").splitlines() if line.strip())
+        return sum(
+            1 for line in self._file.read_text(encoding="utf-8").splitlines() if line.strip()
+        )
 
 
 class SpoolingAuditSink:
@@ -137,9 +139,7 @@ class AuditMiddleware:
         self._agent_id = agent_id
         self._server_name = server_name
 
-    async def wrap(
-        self, tool_name: str, args: Any, call_fn: Callable[[], Awaitable[Any]]
-    ) -> Any:
+    async def wrap(self, tool_name: str, args: Any, call_fn: Callable[[], Awaitable[Any]]) -> Any:
         start = time.monotonic()
         ok = True
         error_code: str | None = None

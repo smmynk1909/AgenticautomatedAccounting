@@ -20,7 +20,9 @@ def test_unknown_code_falls_back_to_internal_error() -> None:
 
     # model_construct bypasses Literal validation so we can simulate a code
     # this codebase doesn't know about (e.g. from a future server version).
-    info = ErrorInfo.model_construct(code="NOT_A_REAL_CODE", message="x", retryable=False, details={})
+    info = ErrorInfo.model_construct(
+        code="NOT_A_REAL_CODE", message="x", retryable=False, details={}
+    )
     restored = AwpError.from_error_info(info)
     assert restored.code == "INTERNAL"
 

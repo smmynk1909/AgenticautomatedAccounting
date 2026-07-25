@@ -1,5 +1,4 @@
 import pytest
-
 from awp_shared.config import load_config
 from awp_shared.errors import ValidationError
 

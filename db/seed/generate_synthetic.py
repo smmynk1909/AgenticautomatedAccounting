@@ -18,7 +18,7 @@ import asyncio
 import os
 import random
 import uuid
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
@@ -108,7 +108,10 @@ async def seed_config_tables(conn: AsyncConnection, tables: dict[str, Table]) ->
             data=data,
         )
         for kind, data in {
-            "it_slabs": {"regime": "new", "slabs": [{"upto": 300000, "rate": 0}, {"upto": 700000, "rate": 0.05}]},
+            "it_slabs": {
+                "regime": "new",
+                "slabs": [{"upto": 300000, "rate": 0}, {"upto": 700000, "rate": 0.05}],
+            },
             "pf": {"employee_rate": 0.12, "employer_rate": 0.12, "wage_ceiling": 15000},
             "esi": {"employee_rate": 0.0075, "employer_rate": 0.0325, "wage_ceiling": 21000},
             "pt_states": {"KA": {"monthly": 200}, "MH": {"monthly": 200}},
@@ -136,7 +139,15 @@ async def seed_org(
         band_id = _uuid()
         band_ids[grade] = band_id
         band_rows.append(
-            dict(id=band_id, grade=grade, min=lo, mid=mid, max=hi, currency="INR", effective_from=date(2025, 4, 1))
+            dict(
+                id=band_id,
+                grade=grade,
+                min=lo,
+                mid=mid,
+                max=hi,
+                currency="INR",
+                effective_from=date(2025, 4, 1),
+            )
         )
     await conn.execute(tables["salary_bands"].insert(), band_rows)
 
@@ -165,15 +176,18 @@ async def seed_org(
         dept_name = DEPARTMENTS[i % len(DEPARTMENTS)]
         grade = random.choices(GRADES, weights=[35, 30, 20, 10, 5])[0]
         manager_pool = managers_by_dept[dept_name]
-        manager_id = random.choice(manager_pool) if manager_pool and grade in ("E1", "E2", "E3") else None
+        manager_id = (
+            random.choice(manager_pool) if manager_pool and grade in ("E1", "E2", "E3") else None
+        )
         join_date = fake.date_between(start_date="-3y", end_date="-30d")
         employees.append(
             dict(
                 emp_id=emp_id,
                 candidate_id=None,
                 name=fake.name(),
-                contact_encrypted=None,  # doc 09 §1 pii column; real encryption is repo-layer (Sprint 2+),
-                                          # not meaningful for synthetic fixtures
+                # doc 09 §1 pii column; real encryption is repo-layer (Sprint 2+),
+                # not meaningful for synthetic fixtures
+                contact_encrypted=None,
                 dept_id=dept_ids[dept_name],
                 role_id=role_ids[(dept_name, grade)],
                 manager_id=manager_id,
@@ -194,7 +208,8 @@ async def seed_org(
         dict(
             id=_uuid(),
             emp_id=e["emp_id"],
-            components_encrypted=None,  # doc 09 §1 pgcrypto column; see contact_encrypted note above
+            # doc 09 §1 pgcrypto column; see contact_encrypted note above
+            components_encrypted=None,
             effective_from=e["join_date"],
         )
         for e in employees
@@ -304,7 +319,9 @@ async def seed_projects_and_work(
                 weeks += 1
     await conn.execute(tables["allocations"].insert(), allocation_rows)
     for chunk_start in range(0, len(work_log_rows), 500):
-        await conn.execute(tables["work_logs"].insert(), work_log_rows[chunk_start : chunk_start + 500])
+        await conn.execute(
+            tables["work_logs"].insert(), work_log_rows[chunk_start : chunk_start + 500]
+        )
 
 
 async def seed_ledger(conn: AsyncConnection, tables: dict[str, Table]) -> None:
@@ -320,7 +337,9 @@ async def seed_ledger(conn: AsyncConnection, tables: dict[str, Table]) -> None:
     months.reverse()  # oldest first
 
     period_rows = [
-        dict(period=f"{d.year:04d}-{d.month:02d}", status="closed" if i < len(months) - 1 else "open")
+        dict(
+            period=f"{d.year:04d}-{d.month:02d}", status="closed" if i < len(months) - 1 else "open"
+        )
         for i, d in enumerate(months)
     ]
     await conn.execute(tables["periods"].insert(), period_rows)
@@ -333,34 +352,103 @@ async def seed_ledger(conn: AsyncConnection, tables: dict[str, Table]) -> None:
         # Monthly rent: dr Rent Expense (5003) / cr Bank (1001)
         rent_entry_id = _uuid()
         entry_rows.append(
-            dict(id=rent_entry_id, date=d, period=period, ref=f"RENT-{period}", posted_by="seed", approval_ref=None)
+            dict(
+                id=rent_entry_id,
+                date=d,
+                period=period,
+                ref=f"RENT-{period}",
+                posted_by="seed",
+                approval_ref=None,
+            )
         )
         rent_amount = Decimal("150000.00")
         line_rows += [
-            dict(id=_uuid(), entry_id=rent_entry_id, account="5003", dr=rent_amount, cr=Decimal("0"), cost_center="ops", meta={}),
-            dict(id=_uuid(), entry_id=rent_entry_id, account="1001", dr=Decimal("0"), cr=rent_amount, cost_center="ops", meta={}),
+            dict(
+                id=_uuid(),
+                entry_id=rent_entry_id,
+                account="5003",
+                dr=rent_amount,
+                cr=Decimal("0"),
+                cost_center="ops",
+                meta={},
+            ),
+            dict(
+                id=_uuid(),
+                entry_id=rent_entry_id,
+                account="1001",
+                dr=Decimal("0"),
+                cr=rent_amount,
+                cost_center="ops",
+                meta={},
+            ),
         ]
 
         # Monthly salary accrual: dr Salaries Expense (5001) / cr Salary Payable (2002)
         salary_entry_id = _uuid()
         entry_rows.append(
-            dict(id=salary_entry_id, date=d, period=period, ref=f"PAYROLL-{period}", posted_by="seed", approval_ref=None)
+            dict(
+                id=salary_entry_id,
+                date=d,
+                period=period,
+                ref=f"PAYROLL-{period}",
+                posted_by="seed",
+                approval_ref=None,
+            )
         )
         salary_amount = Decimal(random.randint(2_800_000, 3_200_000))
         line_rows += [
-            dict(id=_uuid(), entry_id=salary_entry_id, account="5001", dr=salary_amount, cr=Decimal("0"), cost_center="payroll", meta={}),
-            dict(id=_uuid(), entry_id=salary_entry_id, account="2002", dr=Decimal("0"), cr=salary_amount, cost_center="payroll", meta={}),
+            dict(
+                id=_uuid(),
+                entry_id=salary_entry_id,
+                account="5001",
+                dr=salary_amount,
+                cr=Decimal("0"),
+                cost_center="payroll",
+                meta={},
+            ),
+            dict(
+                id=_uuid(),
+                entry_id=salary_entry_id,
+                account="2002",
+                dr=Decimal("0"),
+                cr=salary_amount,
+                cost_center="payroll",
+                meta={},
+            ),
         ]
 
         # Monthly software subscription: dr Software Subscriptions (5004) / cr Bank (1001)
         sw_entry_id = _uuid()
         entry_rows.append(
-            dict(id=sw_entry_id, date=d, period=period, ref=f"SUBS-{period}", posted_by="seed", approval_ref=None)
+            dict(
+                id=sw_entry_id,
+                date=d,
+                period=period,
+                ref=f"SUBS-{period}",
+                posted_by="seed",
+                approval_ref=None,
+            )
         )
         sw_amount = Decimal("85000.00")
         line_rows += [
-            dict(id=_uuid(), entry_id=sw_entry_id, account="5004", dr=sw_amount, cr=Decimal("0"), cost_center="it", meta={}),
-            dict(id=_uuid(), entry_id=sw_entry_id, account="1001", dr=Decimal("0"), cr=sw_amount, cost_center="it", meta={}),
+            dict(
+                id=_uuid(),
+                entry_id=sw_entry_id,
+                account="5004",
+                dr=sw_amount,
+                cr=Decimal("0"),
+                cost_center="it",
+                meta={},
+            ),
+            dict(
+                id=_uuid(),
+                entry_id=sw_entry_id,
+                account="1001",
+                dr=Decimal("0"),
+                cr=sw_amount,
+                cost_center="it",
+                meta={},
+            ),
         ]
 
     await conn.execute(tables["journal_entries"].insert(), entry_rows)
@@ -368,10 +456,12 @@ async def seed_ledger(conn: AsyncConnection, tables: dict[str, Table]) -> None:
 
     def _fy_for(d: date) -> str:
         # Indian FY: Apr-Mar, e.g. Jan 2026 -> "2025-26", Apr 2026 -> "2026-27"
-        return f"{d.year}-{str(d.year + 1)[2:]}" if d.month >= 4 else f"{d.year - 1}-{str(d.year)[2:]}"
+        return (
+            f"{d.year}-{str(d.year + 1)[2:]}" if d.month >= 4 else f"{d.year - 1}-{str(d.year)[2:]}"
+        )
 
     fy_rows = [
-        dict(fy=fy, invoice_seq=0, updated_at=datetime.now(timezone.utc))
+        dict(fy=fy, invoice_seq=0, updated_at=datetime.now(UTC))
         for fy in sorted({_fy_for(d) for d in months})
     ]
     if fy_rows:

@@ -1,4 +1,5 @@
-"""mcp-approvals process entrypoint: `uvicorn awp_mcp_approvals.main:app --host 0.0.0.0 --port 8000`.
+"""mcp-approvals process entrypoint:
+`uvicorn awp_mcp_approvals.main:app --host 0.0.0.0 --port 8000`.
 
 Only the agent-facing surface (`request_approval`, `get_approval_status`) is
 mounted here. `approve`/`reject` (`service.py`) are wired into the gateway's
@@ -10,16 +11,14 @@ from __future__ import annotations
 
 import os
 
-from fastapi import FastAPI
-
+from awp_mcp_base.asgi import build_asgi_app
+from awp_mcp_base.uow import UnitOfWork, make_engine
 from awp_shared.audit_mw import RemoteAuditSink
 from awp_shared.auth import mint_service_jwt
 from awp_shared.bus import make_redis
 from awp_shared.config import validate_all
 from awp_shared.mcpc import MCP
-
-from awp_mcp_base.asgi import build_asgi_app
-from awp_mcp_base.uow import UnitOfWork, make_engine
+from fastapi import FastAPI
 
 from awp_mcp_approvals.server import make_approvals_server
 

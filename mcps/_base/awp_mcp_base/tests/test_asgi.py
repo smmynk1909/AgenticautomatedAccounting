@@ -1,10 +1,10 @@
 import httpx
 import pytest
-from fakeredis.aioredis import FakeRedis
-
 from awp_shared.audit_mw import AuditEvent
 from awp_shared.auth import mint_service_jwt
 from awp_shared.errors import NotFoundError
+from fakeredis.aioredis import FakeRedis
+from fastapi import FastAPI
 
 from awp_mcp_base.asgi import build_asgi_app
 from awp_mcp_base.ctx import Ctx
@@ -30,7 +30,7 @@ def _server() -> AwpMcpServer:
     return server
 
 
-async def _client(app) -> httpx.AsyncClient:
+async def _client(app: FastAPI) -> httpx.AsyncClient:
     transport = httpx.ASGITransport(app=app)
     return httpx.AsyncClient(transport=transport, base_url="http://testserver")
 
@@ -51,7 +51,9 @@ async def test_tool_call_success_round_trip() -> None:
     token = mint_service_jwt("FIN-1", ["audit.write"])
     async with await _client(app) as client:
         r = await client.post(
-            "/tools/log_event", json={"tool": "post_journal"}, headers={"Authorization": f"Bearer {token}"}
+            "/tools/log_event",
+            json={"tool": "post_journal"},
+            headers={"Authorization": f"Bearer {token}"},
         )
     assert r.status_code == 200
     assert r.json() == {"logged": True, "by": "FIN-1"}
@@ -83,6 +85,8 @@ async def test_tool_raises_not_found_error_maps_to_404() -> None:
     app = build_asgi_app(_server())
     token = mint_service_jwt("FIN-1", [])  # "broken" has no scopes.yaml entry, so [] is sufficient
     async with await _client(app) as client:
-        r = await client.post("/tools/broken", json={}, headers={"Authorization": f"Bearer {token}"})
+        r = await client.post(
+            "/tools/broken", json={}, headers={"Authorization": f"Bearer {token}"}
+        )
     assert r.status_code == 404
     assert r.json()["error"]["message"] == "nope"

@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from awp_shared.audit_mw import AuditEvent
 
@@ -7,7 +7,7 @@ from awp_mcp_audit.chain import event_day, merkle_root, record_hash
 
 def _event(**overrides: object) -> AuditEvent:
     defaults: dict[str, object] = dict(
-        ts=datetime(2026, 7, 25, 10, 0, 0, tzinfo=timezone.utc),
+        ts=datetime(2026, 7, 25, 10, 0, 0, tzinfo=UTC),
         agent_id="FIN-1",
         server="finance",
         tool="post_journal",

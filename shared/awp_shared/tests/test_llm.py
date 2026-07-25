@@ -1,4 +1,5 @@
 import json
+from collections.abc import Callable
 
 import httpx
 import pytest
@@ -17,7 +18,7 @@ def _chat_response(content: str | None = None, tool_calls: list[dict] | None = N
     return {"choices": [{"message": message}]}
 
 
-def _llm_with_transport(handler) -> LLM:
+def _llm_with_transport(handler: Callable[[httpx.Request], httpx.Response]) -> LLM:
     transport = httpx.MockTransport(handler)
     client = httpx.AsyncClient(transport=transport)
     return LLM("http://model-gw:11434/v1", "qwen2.5:7b-instruct", SamplingProfile(), client=client)
@@ -43,14 +44,19 @@ async def test_chat_parses_tool_calls() -> None:
                 tool_calls=[
                     {
                         "id": "call_1",
-                        "function": {"name": "get_employee", "arguments": json.dumps({"emp_id": "E1"})},
+                        "function": {
+                            "name": "get_employee",
+                            "arguments": json.dumps({"emp_id": "E1"}),
+                        },
                     }
                 ]
             ),
         )
 
     llm = _llm_with_transport(handler)
-    resp = await llm.chat([{"role": "user", "content": "hi"}], tools=[{"type": "function", "function": {}}])
+    resp = await llm.chat(
+        [{"role": "user", "content": "hi"}], tools=[{"type": "function", "function": {}}]
+    )
     assert len(resp.tool_calls) == 1
     assert resp.tool_calls[0].name == "get_employee"
     assert resp.tool_calls[0].arguments == {"emp_id": "E1"}
@@ -83,7 +89,9 @@ async def test_guided_json_valid_on_first_try_skips_repair() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         nonlocal calls
         calls += 1
-        return httpx.Response(200, json=_chat_response(content=_Plan(goal="g", tasks=["t1"]).model_dump_json()))
+        return httpx.Response(
+            200, json=_chat_response(content=_Plan(goal="g", tasks=["t1"]).model_dump_json())
+        )
 
     llm = _llm_with_transport(handler)
     resp = await llm.chat([{"role": "user", "content": "plan"}], guided_json=_Plan)
@@ -101,7 +109,9 @@ async def test_guided_json_repairs_once_then_succeeds() -> None:
         calls += 1
         if calls == 1:
             return httpx.Response(200, json=_chat_response(content="not json at all"))
-        return httpx.Response(200, json=_chat_response(content=_Plan(goal="g", tasks=[]).model_dump_json()))
+        return httpx.Response(
+            200, json=_chat_response(content=_Plan(goal="g", tasks=[]).model_dump_json())
+        )
 
     llm = _llm_with_transport(handler)
     resp = await llm.chat([{"role": "user", "content": "plan"}], guided_json=_Plan)

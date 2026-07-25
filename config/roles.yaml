@@ -16,11 +16,11 @@
 
 - role: hr_head
   description: Owns HR approvals.
-  approver_for: [offer_communication, letter_issue]
+  approver_for: [offer_communication, letter_issue, onboarding]
 
 - role: admin_head
   description: Owns Admin data-quality approvals.
-  approver_for: [data_merge, record_correction]
+  approver_for: [data_merge, record_correction, onboarding]
 
 - role: support_lead
   description: Owns the ticket fabric's KB/bulk-action approvals.

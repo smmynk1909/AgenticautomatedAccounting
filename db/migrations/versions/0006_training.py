@@ -19,8 +19,12 @@ depends_on = None
 
 def _audit_cols() -> list[sa.Column]:
     return [
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
-        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+        sa.Column(
+            "created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()
+        ),
+        sa.Column(
+            "updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()
+        ),
         sa.Column("deleted_at", sa.DateTime(timezone=True), nullable=True),
     ]
 
@@ -28,7 +32,12 @@ def _audit_cols() -> list[sa.Column]:
 def upgrade() -> None:
     op.create_table(
         "training_catalog",
-        sa.Column("id", pg.UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")),
+        sa.Column(
+            "id",
+            pg.UUID(as_uuid=True),
+            primary_key=True,
+            server_default=sa.text("gen_random_uuid()"),
+        ),
         sa.Column("title", sa.String(200), nullable=False),
         sa.Column("provider", sa.String(120), nullable=True),
         sa.Column("skills", pg.ARRAY(pg.UUID(as_uuid=True)), nullable=False, server_default="{}"),
@@ -39,7 +48,12 @@ def upgrade() -> None:
 
     op.create_table(
         "training_plans",
-        sa.Column("id", pg.UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")),
+        sa.Column(
+            "id",
+            pg.UUID(as_uuid=True),
+            primary_key=True,
+            server_default=sa.text("gen_random_uuid()"),
+        ),
         sa.Column("emp_id", sa.String(20), sa.ForeignKey("employees.emp_id"), nullable=False),
         sa.Column("items", pg.JSONB(), nullable=False, server_default="[]"),
         sa.Column("status", sa.String(20), nullable=False, server_default="proposed"),
@@ -50,9 +64,24 @@ def upgrade() -> None:
 
     op.create_table(
         "training_progress",
-        sa.Column("id", pg.UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")),
-        sa.Column("training_plan_id", pg.UUID(as_uuid=True), sa.ForeignKey("training_plans.id"), nullable=False),
-        sa.Column("catalog_id", pg.UUID(as_uuid=True), sa.ForeignKey("training_catalog.id"), nullable=False),
+        sa.Column(
+            "id",
+            pg.UUID(as_uuid=True),
+            primary_key=True,
+            server_default=sa.text("gen_random_uuid()"),
+        ),
+        sa.Column(
+            "training_plan_id",
+            pg.UUID(as_uuid=True),
+            sa.ForeignKey("training_plans.id"),
+            nullable=False,
+        ),
+        sa.Column(
+            "catalog_id",
+            pg.UUID(as_uuid=True),
+            sa.ForeignKey("training_catalog.id"),
+            nullable=False,
+        ),
         sa.Column("status", sa.String(20), nullable=False, server_default="enrolled"),
         sa.Column("completed_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("assessment_score", sa.Numeric(5, 2), nullable=True),

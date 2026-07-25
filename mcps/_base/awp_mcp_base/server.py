@@ -7,14 +7,13 @@ can call `dispatch_raw` directly with no network involved.
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable
+from collections.abc import Callable
 from typing import Any
-
-from redis.asyncio import Redis
 
 from awp_shared.audit_mw import AuditSink
 from awp_shared.config import get_required_scopes
 from awp_shared.errors import NotFoundError
+from redis.asyncio import Redis
 
 from awp_mcp_base.ctx import Ctx
 from awp_mcp_base.pipeline import Handler, ToolPipeline

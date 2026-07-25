@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel
-
 from awp_shared.config import ConfigError, get_gate
+from pydantic import BaseModel
 
 
 class GateConfig(BaseModel):

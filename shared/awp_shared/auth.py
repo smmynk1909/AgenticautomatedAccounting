@@ -14,7 +14,7 @@ import hashlib
 import json
 import os
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any, Literal
 
 import jwt
@@ -50,7 +50,7 @@ def _approval_secret() -> str:
 
 
 def _utcnow() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 class Principal(BaseModel):
@@ -106,9 +106,7 @@ def mint_user_jwt(user_id: str, roles: list[str], ttl_s: int = 8 * 3600) -> str:
 
 def verify_jwt(token: str) -> Principal:
     try:
-        data = jwt.decode(
-            token, _service_secret(), algorithms=[ALGORITHM], issuer=_issuer()
-        )
+        data = jwt.decode(token, _service_secret(), algorithms=[ALGORITHM], issuer=_issuer())
     except jwt.PyJWTError as exc:
         raise PermissionDeniedError(f"invalid or expired token: {exc}") from exc
     return Principal(
@@ -157,9 +155,7 @@ async def verify_approval_token(
     an `ApprovalRequiredError`, full stop.
     """
     try:
-        data = jwt.decode(
-            token, _approval_secret(), algorithms=[ALGORITHM], issuer=_issuer()
-        )
+        data = jwt.decode(token, _approval_secret(), algorithms=[ALGORITHM], issuer=_issuer())
     except jwt.PyJWTError as exc:
         raise ApprovalRequiredError(f"invalid approval token: {exc}") from exc
 
@@ -168,7 +164,7 @@ async def verify_approval_token(
         gate=data["gate"],
         payload_hash=data["payload_hash"],
         approvers=data.get("approvers", []),
-        exp=datetime.fromtimestamp(data["exp"], tz=timezone.utc),
+        exp=datetime.fromtimestamp(data["exp"], tz=UTC),
     )
 
     if tok.gate != gate:

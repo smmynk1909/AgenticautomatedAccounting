@@ -51,7 +51,14 @@ async def test_call_merges_approval_token_into_payload() -> None:
 @pytest.mark.asyncio
 async def test_call_raises_typed_error_on_server_error_envelope() -> None:
     mcp = _mcp_with_raw(
-        {"error": {"code": "NOT_FOUND", "message": "no such employee", "retryable": False, "details": {}}}
+        {
+            "error": {
+                "code": "NOT_FOUND",
+                "message": "no such employee",
+                "retryable": False,
+                "details": {},
+            }
+        }
     )
     with pytest.raises(NotFoundError):
         await mcp.call("erp", "get_employee", _Args(emp_id="does-not-exist"))
@@ -60,7 +67,14 @@ async def test_call_raises_typed_error_on_server_error_envelope() -> None:
 @pytest.mark.asyncio
 async def test_call_permission_denied_error_envelope() -> None:
     mcp = _mcp_with_raw(
-        {"error": {"code": "PERMISSION_DENIED", "message": "no scope", "retryable": False, "details": {}}}
+        {
+            "error": {
+                "code": "PERMISSION_DENIED",
+                "message": "no scope",
+                "retryable": False,
+                "details": {},
+            }
+        }
     )
     with pytest.raises(PermissionDeniedError):
         await mcp.call("erp", "assign_asset", {"asset_id": "A1"})

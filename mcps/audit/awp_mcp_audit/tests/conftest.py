@@ -1,11 +1,11 @@
 from collections.abc import AsyncIterator
 
 import pytest
+from awp_mcp_base.uow import UnitOfWork
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 from sqlalchemy.pool import StaticPool
 
 from awp_mcp_audit.tables import metadata
-from awp_mcp_base.uow import UnitOfWork
 
 
 @pytest.fixture(autouse=True)

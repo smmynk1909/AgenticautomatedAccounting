@@ -24,7 +24,12 @@ def upgrade() -> None:
     op.create_table(
         "dashboard_items",
         # doc 03 §2.4 push_dashboard_item shape.
-        sa.Column("id", pg.UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")),
+        sa.Column(
+            "id",
+            pg.UUID(as_uuid=True),
+            primary_key=True,
+            server_default=sa.text("gen_random_uuid()"),
+        ),
         sa.Column("audience_roles", pg.JSONB(), nullable=False),  # list[str]
         sa.Column("panel", sa.String(60), nullable=False),
         sa.Column("severity", sa.String(20), nullable=False, server_default="info"),
@@ -33,7 +38,9 @@ def upgrade() -> None:
         sa.Column("action_link", sa.Text(), nullable=True),
         sa.Column("expires_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("source_task_id", pg.UUID(as_uuid=True), nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+        sa.Column(
+            "created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()
+        ),
     )
     op.create_index("ix_dashboard_items_panel", "dashboard_items", ["panel"])
     op.create_index("ix_dashboard_items_expires", "dashboard_items", ["expires_at"])
@@ -44,14 +51,21 @@ def upgrade() -> None:
         # index itself lives in Qdrant (introduced Sprint 7, doc 09 §1
         # "Qdrant collections: resumes, support_kb, fin_kb, project_docs,
         # eng_kb, market_intel, code_{project}").
-        sa.Column("id", pg.UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")),
+        sa.Column(
+            "id",
+            pg.UUID(as_uuid=True),
+            primary_key=True,
+            server_default=sa.text("gen_random_uuid()"),
+        ),
         sa.Column("corpus", sa.String(60), nullable=False),
         sa.Column("title", sa.String(200), nullable=True),
         sa.Column("acl_tags", pg.JSONB(), nullable=False, server_default="[]"),
         sa.Column("department_scope", sa.String(20), nullable=True),
         sa.Column("as_of", sa.Date(), nullable=True),
         sa.Column("source_uri", sa.Text(), nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+        sa.Column(
+            "created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()
+        ),
         sa.Column("deleted_at", sa.DateTime(timezone=True), nullable=True),
     )
     op.create_index("ix_kb_documents_corpus", "kb_documents", ["corpus"])
@@ -61,7 +75,9 @@ def upgrade() -> None:
         sa.Column("task_id", pg.UUID(as_uuid=True), primary_key=True),
         sa.Column("graph", sa.String(40), nullable=False),
         sa.Column("state", sa.LargeBinary(), nullable=False),
-        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+        sa.Column(
+            "updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()
+        ),
     )
 
     op.create_table(

@@ -1,14 +1,13 @@
 import pytest
-from fakeredis.aioredis import FakeRedis
-
+from awp_mcp_base.uow import UnitOfWork
 from awp_shared.audit_mw import AuditEvent
 from awp_shared.auth import Principal, mint_service_jwt
 from awp_shared.errors import PermissionDeniedError, ValidationError
+from fakeredis.aioredis import FakeRedis
 
 from awp_mcp_approvals.server import make_approvals_server
 from awp_mcp_approvals.service import approve
 from awp_mcp_approvals.store import ApprovalStore
-from awp_mcp_base.uow import UnitOfWork
 
 
 class _NullSink:

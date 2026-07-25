@@ -19,8 +19,12 @@ depends_on = None
 
 def _audit_cols() -> list[sa.Column]:
     return [
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
-        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+        sa.Column(
+            "created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()
+        ),
+        sa.Column(
+            "updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()
+        ),
         sa.Column("deleted_at", sa.DateTime(timezone=True), nullable=True),
     ]
 
@@ -40,8 +44,12 @@ def upgrade() -> None:
         sa.Column("status", sa.String(20), nullable=False, server_default="new"),
         sa.Column("assignee_type", sa.String(20), nullable=True),  # agent|human
         sa.Column("assignee_id", sa.String(40), nullable=True),
-        sa.Column("parent_ticket_id", sa.String(24), sa.ForeignKey("tickets.ticket_id"), nullable=True),
-        sa.Column("linked_ticket_ids", pg.ARRAY(sa.String(24)), nullable=False, server_default="{}"),
+        sa.Column(
+            "parent_ticket_id", sa.String(24), sa.ForeignKey("tickets.ticket_id"), nullable=True
+        ),
+        sa.Column(
+            "linked_ticket_ids", pg.ARRAY(sa.String(24)), nullable=False, server_default="{}"
+        ),
         sa.Column("sla_first_response_due", sa.DateTime(timezone=True), nullable=True),
         sa.Column("sla_resolution_due", sa.DateTime(timezone=True), nullable=True),
         sa.Column("summary_current", sa.Text(), nullable=False, server_default=""),
@@ -49,13 +57,20 @@ def upgrade() -> None:
         sa.Column("confidential", sa.Boolean(), nullable=False, server_default=sa.false()),
         *_audit_cols(),
     )
-    op.create_index("ix_tickets_status_category_priority", "tickets", ["status", "category", "priority"])
+    op.create_index(
+        "ix_tickets_status_category_priority", "tickets", ["status", "category", "priority"]
+    )
     op.create_index("ix_tickets_parent", "tickets", ["parent_ticket_id"])
 
     op.create_table(
         "ticket_events",
         # append-only — no updated_at/deleted_at, doc 09 §1 explicit "(append-only)"
-        sa.Column("id", pg.UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")),
+        sa.Column(
+            "id",
+            pg.UUID(as_uuid=True),
+            primary_key=True,
+            server_default=sa.text("gen_random_uuid()"),
+        ),
         sa.Column("ticket_id", sa.String(24), sa.ForeignKey("tickets.ticket_id"), nullable=False),
         sa.Column("ts", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
         sa.Column("actor", sa.String(40), nullable=False),
@@ -67,7 +82,12 @@ def upgrade() -> None:
     op.create_table(
         "orchestrator_tasks",
         sa.Column("task_id", pg.UUID(as_uuid=True), primary_key=True),
-        sa.Column("parent", pg.UUID(as_uuid=True), sa.ForeignKey("orchestrator_tasks.task_id"), nullable=True),
+        sa.Column(
+            "parent",
+            pg.UUID(as_uuid=True),
+            sa.ForeignKey("orchestrator_tasks.task_id"),
+            nullable=True,
+        ),
         sa.Column("agent", sa.String(10), nullable=False),
         sa.Column("intent", sa.String(80), nullable=False),
         sa.Column("payload", pg.JSONB(), nullable=False, server_default="{}"),

@@ -19,8 +19,12 @@ depends_on = None
 
 def _audit_cols() -> list[sa.Column]:
     return [
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
-        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+        sa.Column(
+            "created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()
+        ),
+        sa.Column(
+            "updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()
+        ),
         sa.Column("deleted_at", sa.DateTime(timezone=True), nullable=True),
     ]
 
@@ -28,7 +32,12 @@ def _audit_cols() -> list[sa.Column]:
 def upgrade() -> None:
     op.create_table(
         "projects",
-        sa.Column("id", pg.UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")),
+        sa.Column(
+            "id",
+            pg.UUID(as_uuid=True),
+            primary_key=True,
+            server_default=sa.text("gen_random_uuid()"),
+        ),
         sa.Column("client", sa.String(160), nullable=False),
         sa.Column("sow_ref", sa.String(120), nullable=True),
         sa.Column("status", sa.String(20), nullable=False, server_default="active"),
@@ -39,8 +48,15 @@ def upgrade() -> None:
 
     op.create_table(
         "milestones",
-        sa.Column("id", pg.UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")),
-        sa.Column("project_id", pg.UUID(as_uuid=True), sa.ForeignKey("projects.id"), nullable=False),
+        sa.Column(
+            "id",
+            pg.UUID(as_uuid=True),
+            primary_key=True,
+            server_default=sa.text("gen_random_uuid()"),
+        ),
+        sa.Column(
+            "project_id", pg.UUID(as_uuid=True), sa.ForeignKey("projects.id"), nullable=False
+        ),
         sa.Column("title", sa.String(200), nullable=False),
         sa.Column("due", sa.Date(), nullable=True),
         sa.Column("acceptance", pg.JSONB(), nullable=False, server_default="{}"),
@@ -52,9 +68,16 @@ def upgrade() -> None:
 
     op.create_table(
         "allocations",
-        sa.Column("id", pg.UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")),
+        sa.Column(
+            "id",
+            pg.UUID(as_uuid=True),
+            primary_key=True,
+            server_default=sa.text("gen_random_uuid()"),
+        ),
         sa.Column("emp_id", sa.String(20), sa.ForeignKey("employees.emp_id"), nullable=False),
-        sa.Column("project_id", pg.UUID(as_uuid=True), sa.ForeignKey("projects.id"), nullable=False),
+        sa.Column(
+            "project_id", pg.UUID(as_uuid=True), sa.ForeignKey("projects.id"), nullable=False
+        ),
         sa.Column("pct", sa.Numeric(5, 2), nullable=False),
         sa.Column("from_date", sa.Date(), nullable=False),
         sa.Column("to_date", sa.Date(), nullable=True),
@@ -65,9 +88,16 @@ def upgrade() -> None:
 
     op.create_table(
         "work_logs",
-        sa.Column("id", pg.UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")),
+        sa.Column(
+            "id",
+            pg.UUID(as_uuid=True),
+            primary_key=True,
+            server_default=sa.text("gen_random_uuid()"),
+        ),
         sa.Column("emp_id", sa.String(20), sa.ForeignKey("employees.emp_id"), nullable=False),
-        sa.Column("project_id", pg.UUID(as_uuid=True), sa.ForeignKey("projects.id"), nullable=False),
+        sa.Column(
+            "project_id", pg.UUID(as_uuid=True), sa.ForeignKey("projects.id"), nullable=False
+        ),
         sa.Column("date", sa.Date(), nullable=False),
         sa.Column("hours", sa.Numeric(4, 2), nullable=False),
         sa.Column("task_ref", sa.String(120), nullable=True),

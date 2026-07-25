@@ -14,11 +14,12 @@ and the rest of `docs/00`–`12`. Deviations this build takes from those docs
 
 ## Status
 
-Sprint 1 of the 12-sprint plan (`docs/12-SOLUTIONING-REPO.md` §5): shared
-library, DB schema + seed data, `mcp-audit`, `mcp-approvals`, and the dev
-Compose/Ollama stack. Everything else (ORCH-0, the department agents, the
-other seven MCP servers, the web app) is scaffolded in the tree below but not
-yet implemented — see the sprint backlog in the doc.
+Sprints 1–2 of the 12-sprint plan (`docs/12-SOLUTIONING-REPO.md` §5): shared
+library, DB schema + seed data, `mcp-audit`, `mcp-approvals`, `mcp-erp`
+(people/assets/tickets/tasks/dashboard/policies), and the dev Compose/Ollama
+stack. Everything else (ORCH-0, the department agents, the other six MCP
+servers, the web app) is scaffolded in the tree below but not yet
+implemented — see the sprint backlog in the doc.
 
 ## Prerequisites
 
@@ -32,7 +33,7 @@ yet implemented — see the sprint backlog in the doc.
 ```bash
 cp .env.example .env
 uv sync                                  # creates .venv with all workspace members
-make up                                  # docker compose up postgres redis minio ollama mcp-audit mcp-approvals
+make up                                  # docker compose up postgres redis minio ollama mcp-audit mcp-approvals mcp-erp
 make models                              # ollama pull the model pool (serving/fetch_models.sh)
 make migrate                             # alembic upgrade head
 make seed                                # db/seed/generate_synthetic.py
@@ -50,7 +51,7 @@ Matches `docs/12-SOLUTIONING-REPO.md` §2. Top level:
 config/     intents/gates/scopes/routing/sla/models — schema-validated at boot
 shared/     awp_shared: schemas, auth, task bus, LLM client, MCP client, audit mw
 db/         Alembic migrations, DDL extras, synthetic seed generator
-mcps/       one FastMCP server per capability domain (_base + audit + approvals so far)
+mcps/       one FastMCP server per capability domain (_base + audit + approvals + erp so far)
 agents/     one LangGraph runtime per agent (not yet implemented)
 fincore/    deterministic finance engine (not yet implemented)
 gateway/    FastAPI + WebSocket API (not yet implemented)

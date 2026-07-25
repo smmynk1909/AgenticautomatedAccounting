@@ -92,6 +92,13 @@ data_merge:
   ttl_h: 24
   payload_model: null
 
+onboarding:
+  approver_roles: [admin_head, hr_head]
+  n_required: 1
+  ttl_h: 24
+  payload_model: null
+  notes: "convert_candidate_to_employee; doc 08 §1 (source doc typo 'onbodin g')"
+
 record_correction:
   approver_roles: [admin_head]
   n_required: 1

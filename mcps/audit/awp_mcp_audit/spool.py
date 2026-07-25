@@ -12,10 +12,10 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+from awp_mcp_base.uow import UnitOfWork
 from awp_shared.audit_mw import AuditEvent, DiskSpool, SpoolingAuditSink
 
 from awp_mcp_audit.store import EventStore
-from awp_mcp_base.uow import UnitOfWork
 
 
 def default_spool_dir() -> Path:
@@ -34,5 +34,7 @@ class DirectStoreSink:
             await EventStore(session).append(event)
 
 
-def build_self_spooling_sink(uow: UnitOfWork, *, spool_dir: Path | None = None) -> SpoolingAuditSink:
+def build_self_spooling_sink(
+    uow: UnitOfWork, *, spool_dir: Path | None = None
+) -> SpoolingAuditSink:
     return SpoolingAuditSink(DirectStoreSink(uow), DiskSpool(spool_dir or default_spool_dir()))

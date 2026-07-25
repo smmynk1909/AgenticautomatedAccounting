@@ -1,10 +1,9 @@
 import pytest
-from fakeredis.aioredis import FakeRedis
-
 from awp_shared.audit_mw import AuditEvent
 from awp_shared.auth import mint_service_jwt
 from awp_shared.config import get_required_scopes, load_config
 from awp_shared.errors import PermissionDeniedError, ValidationError
+from fakeredis.aioredis import FakeRedis
 
 from awp_mcp_base.ctx import Ctx
 from awp_mcp_base.pipeline import ToolPipeline
@@ -156,8 +155,12 @@ async def test_pipeline_wired_to_real_scopes_config_enforces_audit_write() -> No
         return {}
 
     with pytest.raises(PermissionDeniedError):
-        await pipeline.dispatch("log_event", {}, {"Authorization": f"Bearer {no_scope_token}"}, handler)
+        await pipeline.dispatch(
+            "log_event", {}, {"Authorization": f"Bearer {no_scope_token}"}, handler
+        )
 
     ok_token = mint_service_jwt("HR-1", ["audit.write"])
-    result = await pipeline.dispatch("log_event", {}, {"Authorization": f"Bearer {ok_token}"}, handler)
+    result = await pipeline.dispatch(
+        "log_event", {}, {"Authorization": f"Bearer {ok_token}"}, handler
+    )
     assert result == {}

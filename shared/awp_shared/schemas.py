@@ -6,15 +6,15 @@ built from these models. Nothing crosses a module boundary as a bare dict.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from enum import Enum
+from datetime import UTC, datetime
+from enum import StrEnum
 from typing import Any, Literal
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
 
 
-class AgentId(str, Enum):
+class AgentId(StrEnum):
     ORCH0 = "ORCH-0"
     ADM1 = "ADM-1"
     HR1 = "HR-1"
@@ -25,14 +25,14 @@ class AgentId(str, Enum):
     SCHEDULER = "SCHEDULER"
 
 
-class Priority(str, Enum):
+class Priority(StrEnum):
     P1 = "P1"
     P2 = "P2"
     P3 = "P3"
     P4 = "P4"
 
 
-class TaskStatus(str, Enum):
+class TaskStatus(StrEnum):
     PENDING = "pending"
     DISPATCHED = "dispatched"
     IN_PROGRESS = "in_progress"
@@ -43,7 +43,7 @@ class TaskStatus(str, Enum):
 
 
 def _utcnow() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 class TaskEnvelope(BaseModel):

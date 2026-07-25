@@ -1,12 +1,16 @@
-from fakeredis.aioredis import FakeRedis
 import pytest
-
+from awp_mcp_base.uow import UnitOfWork
 from awp_shared.auth import Principal, mint_service_jwt, verify_approval_token, verify_jwt
-from awp_shared.errors import ApprovalRequiredError, ConflictError, NotFoundError, PermissionDeniedError
+from awp_shared.errors import (
+    ApprovalRequiredError,
+    ConflictError,
+    NotFoundError,
+    PermissionDeniedError,
+)
+from fakeredis.aioredis import FakeRedis
 
 from awp_mcp_approvals.service import approve, reject
 from awp_mcp_approvals.store import ApprovalStore
-from awp_mcp_base.uow import UnitOfWork
 
 FINANCE_HEAD = Principal(sub="dev-finance-head", kind="user", roles=["finance_head", "finance"])
 DIRECTOR = Principal(sub="dev-director", kind="user", roles=["director"])
@@ -28,7 +32,9 @@ async def _create(uow: UnitOfWork, *, gate: str, approver_roles: list[str], n_re
 
 @pytest.mark.asyncio
 async def test_single_approver_gate_mints_token_immediately(uow: UnitOfWork) -> None:
-    approval_id = await _create(uow, gate="invoice_issue", approver_roles=["finance_head"], n_required=1)
+    approval_id = await _create(
+        uow, gate="invoice_issue", approver_roles=["finance_head"], n_required=1
+    )
     async with uow() as session:
         result = await approve(ApprovalStore(session), approval_id, FINANCE_HEAD)
 
@@ -36,7 +42,9 @@ async def test_single_approver_gate_mints_token_immediately(uow: UnitOfWork) -> 
     assert "token" in result
 
     redis = FakeRedis(decode_responses=True)
-    verified = await verify_approval_token(result["token"], "invoice_issue", {"amount": 100000}, redis=redis)
+    verified = await verify_approval_token(
+        result["token"], "invoice_issue", {"amount": 100000}, redis=redis
+    )
     assert verified.approvers == ["dev-finance-head"]
 
 
@@ -62,8 +70,12 @@ async def test_maker_checker_gate_requires_both_approvers(uow: UnitOfWork) -> No
 async def test_no_agent_scope_can_ever_approve(uow: UnitOfWork) -> None:
     """The core doc 08 §5 guarantee: even a maximally-scoped agent JWT is
     rejected purely on `kind`, before any role check happens."""
-    approval_id = await _create(uow, gate="invoice_issue", approver_roles=["finance_head"], n_required=1)
-    forged_agent_token = mint_service_jwt("FIN-1", ["approvals.request", "approvals.read", "finance.write"])
+    approval_id = await _create(
+        uow, gate="invoice_issue", approver_roles=["finance_head"], n_required=1
+    )
+    forged_agent_token = mint_service_jwt(
+        "FIN-1", ["approvals.request", "approvals.read", "finance.write"]
+    )
     agent_principal = verify_jwt(forged_agent_token)
     assert agent_principal.kind == "agent"
 
@@ -74,7 +86,9 @@ async def test_no_agent_scope_can_ever_approve(uow: UnitOfWork) -> None:
 
 @pytest.mark.asyncio
 async def test_wrong_role_cannot_approve(uow: UnitOfWork) -> None:
-    approval_id = await _create(uow, gate="invoice_issue", approver_roles=["finance_head"], n_required=1)
+    approval_id = await _create(
+        uow, gate="invoice_issue", approver_roles=["finance_head"], n_required=1
+    )
     async with uow() as session:
         with pytest.raises(PermissionDeniedError, match="not authorized"):
             await approve(ApprovalStore(session), approval_id, RECRUITER)
@@ -94,7 +108,9 @@ async def test_same_approver_cannot_vote_twice_maker_checker(uow: UnitOfWork) ->
 
 @pytest.mark.asyncio
 async def test_reject_then_approve_is_rejected_as_conflict(uow: UnitOfWork) -> None:
-    approval_id = await _create(uow, gate="invoice_issue", approver_roles=["finance_head"], n_required=1)
+    approval_id = await _create(
+        uow, gate="invoice_issue", approver_roles=["finance_head"], n_required=1
+    )
     async with uow() as session:
         await reject(ApprovalStore(session), approval_id, FINANCE_HEAD, "budget not confirmed")
     async with uow() as session:
@@ -127,10 +143,14 @@ async def test_approving_unknown_id_raises_not_found(uow: UnitOfWork) -> None:
 
 @pytest.mark.asyncio
 async def test_minted_token_rejects_tampered_payload_end_to_end(uow: UnitOfWork) -> None:
-    approval_id = await _create(uow, gate="invoice_issue", approver_roles=["finance_head"], n_required=1)
+    approval_id = await _create(
+        uow, gate="invoice_issue", approver_roles=["finance_head"], n_required=1
+    )
     async with uow() as session:
         result = await approve(ApprovalStore(session), approval_id, FINANCE_HEAD)
 
     redis = FakeRedis(decode_responses=True)
     with pytest.raises(ApprovalRequiredError, match="payload hash mismatch"):
-        await verify_approval_token(result["token"], "invoice_issue", {"amount": 999999}, redis=redis)
+        await verify_approval_token(
+            result["token"], "invoice_issue", {"amount": 999999}, redis=redis
+        )

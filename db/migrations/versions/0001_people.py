@@ -19,26 +19,44 @@ depends_on = None
 
 def _audit_cols() -> list[sa.Column]:
     return [
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
-        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+        sa.Column(
+            "created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()
+        ),
+        sa.Column(
+            "updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()
+        ),
         sa.Column("deleted_at", sa.DateTime(timezone=True), nullable=True),
     ]
 
 
 def upgrade() -> None:
-    op.execute("CREATE EXTENSION IF NOT EXISTS pgcrypto")  # gen_random_uuid(), pgp_sym_encrypt for PII
+    op.execute(
+        "CREATE EXTENSION IF NOT EXISTS pgcrypto"
+    )  # gen_random_uuid(), pgp_sym_encrypt for PII
 
     op.create_table(
         "departments",
-        sa.Column("id", pg.UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")),
+        sa.Column(
+            "id",
+            pg.UUID(as_uuid=True),
+            primary_key=True,
+            server_default=sa.text("gen_random_uuid()"),
+        ),
         sa.Column("name", sa.String(120), nullable=False, unique=True),
-        sa.Column("head_emp_id", sa.String(20), nullable=True),  # FK to employees added after employees exists
+        sa.Column(
+            "head_emp_id", sa.String(20), nullable=True
+        ),  # FK to employees added after employees exists
         *_audit_cols(),
     )
 
     op.create_table(
         "skills_master",
-        sa.Column("id", pg.UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")),
+        sa.Column(
+            "id",
+            pg.UUID(as_uuid=True),
+            primary_key=True,
+            server_default=sa.text("gen_random_uuid()"),
+        ),
         sa.Column("name", sa.String(120), nullable=False, unique=True),
         sa.Column("synonyms", pg.ARRAY(sa.Text()), nullable=False, server_default="{}"),
         sa.Column("category", sa.String(60), nullable=True),
@@ -47,7 +65,12 @@ def upgrade() -> None:
 
     op.create_table(
         "salary_bands",
-        sa.Column("id", pg.UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")),
+        sa.Column(
+            "id",
+            pg.UUID(as_uuid=True),
+            primary_key=True,
+            server_default=sa.text("gen_random_uuid()"),
+        ),
         sa.Column("grade", sa.String(20), nullable=False),
         sa.Column("min", sa.Numeric(14, 2), nullable=False),
         sa.Column("mid", sa.Numeric(14, 2), nullable=False),
@@ -60,20 +83,36 @@ def upgrade() -> None:
 
     op.create_table(
         "roles",
-        sa.Column("id", pg.UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")),
+        sa.Column(
+            "id",
+            pg.UUID(as_uuid=True),
+            primary_key=True,
+            server_default=sa.text("gen_random_uuid()"),
+        ),
         sa.Column("title", sa.String(160), nullable=False),
         sa.Column("grade", sa.String(20), nullable=False),
-        sa.Column("dept_id", pg.UUID(as_uuid=True), sa.ForeignKey("departments.id"), nullable=False),
-        sa.Column("salary_band_id", pg.UUID(as_uuid=True), sa.ForeignKey("salary_bands.id"), nullable=True),
+        sa.Column(
+            "dept_id", pg.UUID(as_uuid=True), sa.ForeignKey("departments.id"), nullable=False
+        ),
+        sa.Column(
+            "salary_band_id", pg.UUID(as_uuid=True), sa.ForeignKey("salary_bands.id"), nullable=True
+        ),
         sa.Column("role_profile", pg.JSONB(), nullable=False, server_default="{}"),
         *_audit_cols(),
     )
 
     op.create_table(
         "candidates",
-        sa.Column("id", pg.UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")),
+        sa.Column(
+            "id",
+            pg.UUID(as_uuid=True),
+            primary_key=True,
+            server_default=sa.text("gen_random_uuid()"),
+        ),
         sa.Column("source", sa.String(60), nullable=False),
-        sa.Column("profile", pg.JSONB(), nullable=False, server_default="{}"),  # CandidateProfile, doc 04 §2.2
+        sa.Column(
+            "profile", pg.JSONB(), nullable=False, server_default="{}"
+        ),  # CandidateProfile, doc 04 §2.2
         sa.Column("resume_uri", sa.Text(), nullable=True),
         sa.Column("status", sa.String(30), nullable=False, server_default="sourced"),
         sa.Column("consent", pg.JSONB(), nullable=False, server_default="{}"),
@@ -93,13 +132,17 @@ def upgrade() -> None:
         # Allocation/formatting ("EMP-00001") is application-level (ADM-1
         # RegistryKeeper, doc 03 §2.2), not DB-generated.
         sa.Column("emp_id", sa.String(20), primary_key=True),
-        sa.Column("candidate_id", pg.UUID(as_uuid=True), sa.ForeignKey("candidates.id"), nullable=True),
+        sa.Column(
+            "candidate_id", pg.UUID(as_uuid=True), sa.ForeignKey("candidates.id"), nullable=True
+        ),
         sa.Column("name", sa.String(160), nullable=False),
         # pgcrypto-encrypted PII: contact stored as bytea via pgp_sym_encrypt at
         # the repository layer (doc 09 §1 "pgcrypto on comp + PII columns");
         # column type here is bytea, not jsonb, to hold the ciphertext.
         sa.Column("contact_encrypted", sa.LargeBinary(), nullable=True),
-        sa.Column("dept_id", pg.UUID(as_uuid=True), sa.ForeignKey("departments.id"), nullable=False),
+        sa.Column(
+            "dept_id", pg.UUID(as_uuid=True), sa.ForeignKey("departments.id"), nullable=False
+        ),
         sa.Column("role_id", pg.UUID(as_uuid=True), sa.ForeignKey("roles.id"), nullable=False),
         sa.Column("manager_id", sa.String(20), sa.ForeignKey("employees.emp_id"), nullable=True),
         sa.Column("grade", sa.String(20), nullable=False),
@@ -108,7 +151,9 @@ def upgrade() -> None:
         sa.Column("exit_date", sa.Date(), nullable=True),
         sa.Column("skills", pg.ARRAY(pg.UUID(as_uuid=True)), nullable=False, server_default="{}"),
         sa.Column("docs", pg.JSONB(), nullable=False, server_default="{}"),
-        sa.Column("comp_structure_id", pg.UUID(as_uuid=True), nullable=True),  # FK added after comp_structures exists
+        sa.Column(
+            "comp_structure_id", pg.UUID(as_uuid=True), nullable=True
+        ),  # FK added after comp_structures exists
         *_audit_cols(),
     )
     op.create_index("ix_employees_dept_status", "employees", ["dept_id", "status"])
@@ -119,7 +164,12 @@ def upgrade() -> None:
 
     op.create_table(
         "comp_structures",
-        sa.Column("id", pg.UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")),
+        sa.Column(
+            "id",
+            pg.UUID(as_uuid=True),
+            primary_key=True,
+            server_default=sa.text("gen_random_uuid()"),
+        ),
         sa.Column("emp_id", sa.String(20), sa.ForeignKey("employees.emp_id"), nullable=False),
         # pgcrypto-encrypted: salary component breakdown is comp data (doc 09 §1).
         sa.Column("components_encrypted", sa.LargeBinary(), nullable=False),

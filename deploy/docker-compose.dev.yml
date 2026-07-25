@@ -122,6 +122,28 @@ services:
     ports:
       - "8002:8000"
 
+  mcp-erp:
+    build:
+      context: ..
+      dockerfile: mcps/erp/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mcp-audit:
+        condition: service_started
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      REDIS_URL: redis://redis:6379/0
+      AWP_DEV_JWT_SECRET: ${AWP_DEV_JWT_SECRET}
+      AWP_APPROVAL_JWT_SECRET: ${AWP_APPROVAL_JWT_SECRET}
+      AWP_JWT_ISSUER: ${AWP_JWT_ISSUER}
+      MCP_AUDIT_URL: http://mcp-audit:8000
+    ports:
+      - "8003:8000"
+
 volumes:
   pgdata:
   redisdata:

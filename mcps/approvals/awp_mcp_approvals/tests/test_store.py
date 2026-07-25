@@ -1,7 +1,7 @@
 import pytest
+from awp_mcp_base.uow import UnitOfWork
 
 from awp_mcp_approvals.store import ApprovalStore
-from awp_mcp_base.uow import UnitOfWork
 
 
 @pytest.mark.asyncio
@@ -39,7 +39,10 @@ async def test_record_vote_accumulates(uow: UnitOfWork) -> None:
         updated = await store.record_vote(created["id"], "dev-director", "approved")
 
     assert len(updated["approvals_received"]) == 2
-    assert {v["user_id"] for v in updated["approvals_received"]} == {"dev-finance-head", "dev-director"}
+    assert {v["user_id"] for v in updated["approvals_received"]} == {
+        "dev-finance-head",
+        "dev-director",
+    }
 
 
 @pytest.mark.asyncio

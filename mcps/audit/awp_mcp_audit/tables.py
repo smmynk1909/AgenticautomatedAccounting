@@ -7,7 +7,18 @@ audit rows are append-only, never updated or deleted).
 
 from __future__ import annotations
 
-from sqlalchemy import JSON, Boolean, Column, DateTime, Float, Integer, MetaData, String, Table, Text
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    Column,
+    DateTime,
+    Float,
+    Integer,
+    MetaData,
+    String,
+    Table,
+    Text,
+)
 
 metadata = MetaData()
 

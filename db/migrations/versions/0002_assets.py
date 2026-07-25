@@ -19,8 +19,12 @@ depends_on = None
 
 def _audit_cols() -> list[sa.Column]:
     return [
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
-        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+        sa.Column(
+            "created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()
+        ),
+        sa.Column(
+            "updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()
+        ),
         sa.Column("deleted_at", sa.DateTime(timezone=True), nullable=True),
     ]
 
@@ -28,7 +32,12 @@ def _audit_cols() -> list[sa.Column]:
 def upgrade() -> None:
     op.create_table(
         "assets",
-        sa.Column("id", pg.UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")),
+        sa.Column(
+            "id",
+            pg.UUID(as_uuid=True),
+            primary_key=True,
+            server_default=sa.text("gen_random_uuid()"),
+        ),
         sa.Column("type", sa.String(40), nullable=False),
         sa.Column("make_model", sa.String(160), nullable=False),
         sa.Column("serial", sa.String(80), nullable=True, unique=True),
@@ -44,7 +53,12 @@ def upgrade() -> None:
 
     op.create_table(
         "asset_assignments",
-        sa.Column("id", pg.UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")),
+        sa.Column(
+            "id",
+            pg.UUID(as_uuid=True),
+            primary_key=True,
+            server_default=sa.text("gen_random_uuid()"),
+        ),
         sa.Column("asset_id", pg.UUID(as_uuid=True), sa.ForeignKey("assets.id"), nullable=False),
         sa.Column("emp_id", sa.String(20), sa.ForeignKey("employees.emp_id"), nullable=False),
         sa.Column("issued_at", sa.DateTime(timezone=True), nullable=True),

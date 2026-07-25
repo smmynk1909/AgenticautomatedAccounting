@@ -22,7 +22,9 @@ approvals = Table(
     Column("approver_roles", JSON, nullable=False),
     Column("n_required", Integer, nullable=False),
     Column("approvals_received", JSON, nullable=False, default=list),  # [{user_id, ts, comment}]
-    Column("status", String(16), nullable=False, default="pending"),  # pending|approved|rejected|expired
+    Column(
+        "status", String(16), nullable=False, default="pending"
+    ),  # pending|approved|rejected|expired
     Column("token", String, nullable=True),
     Column("token_jti", String(64), nullable=True),
     Column("rejected_by", String(64), nullable=True),

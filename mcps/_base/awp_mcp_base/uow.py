@@ -11,7 +11,12 @@ from __future__ import annotations
 import contextlib
 from collections.abc import AsyncIterator
 
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
 
 
 def make_engine(database_url: str, *, echo: bool = False) -> AsyncEngine:

@@ -1,19 +1,18 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
-from sqlalchemy import delete, update
-
+from awp_mcp_base.uow import UnitOfWork
 from awp_shared.audit_mw import AuditEvent
+from sqlalchemy import delete, update
 
 from awp_mcp_audit.store import EventStore
 from awp_mcp_audit.tables import audit_events
 from awp_mcp_audit.verifier import verify_day
-from awp_mcp_base.uow import UnitOfWork
 
 
 def _event(**overrides: object) -> AuditEvent:
     defaults: dict[str, object] = dict(
-        ts=datetime(2026, 7, 25, 10, 0, 0, tzinfo=timezone.utc),
+        ts=datetime(2026, 7, 25, 10, 0, 0, tzinfo=UTC),
         agent_id="FIN-1",
         server="finance",
         tool="post_journal",

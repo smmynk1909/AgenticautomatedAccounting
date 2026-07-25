@@ -75,7 +75,8 @@ def upgrade() -> None:
         CREATE POLICY tickets_confidential_scope ON tickets
         USING (
             confidential = false
-            OR current_setting('awp.principal_roles', true) ~ 'support_lead|hr_head|admin_head|director|ceo'
+            OR current_setting('awp.principal_roles', true)
+                ~ 'support_lead|hr_head|admin_head|director|ceo'
         )
         """
     )

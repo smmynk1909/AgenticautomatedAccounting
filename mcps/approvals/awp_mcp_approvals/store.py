@@ -12,13 +12,13 @@ scope/auth-gated MCP surface as everything else in this store.
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
+from awp_shared.auth import canonical_payload_hash
+from awp_shared.timeutil import ensure_aware_utc
 from sqlalchemy import insert, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
-
-from awp_shared.auth import canonical_payload_hash
 
 from awp_mcp_approvals.tables import approvals
 
@@ -37,7 +37,7 @@ class ApprovalStore:
         n_required: int,
         ttl_h: int,
     ) -> dict[str, Any]:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         row: dict[str, Any] = dict(
             id=str(uuid.uuid4()),
             gate=gate,
@@ -60,8 +60,10 @@ class ApprovalStore:
 
     async def get(self, approval_id: str) -> dict[str, Any] | None:
         row = (
-            await self.session.execute(select(approvals).where(approvals.c.id == approval_id))
-        ).mappings().first()
+            (await self.session.execute(select(approvals).where(approvals.c.id == approval_id)))
+            .mappings()
+            .first()
+        )
         return dict(row) if row else None
 
     async def record_vote(self, approval_id: str, user_id: str, comment: str) -> dict[str, Any]:
@@ -70,7 +72,7 @@ class ApprovalStore:
             raise KeyError(approval_id)
         votes = [
             *record["approvals_received"],
-            {"user_id": user_id, "ts": datetime.now(timezone.utc).isoformat(), "comment": comment},
+            {"user_id": user_id, "ts": datetime.now(UTC).isoformat(), "comment": comment},
         ]
         await self.session.execute(
             update(approvals).where(approvals.c.id == approval_id).values(approvals_received=votes)
@@ -94,7 +96,11 @@ class ApprovalStore:
 
     async def mark_expired_if_due(self, approval_id: str) -> dict[str, Any] | None:
         record = await self.get(approval_id)
-        if record and record["status"] == "pending" and record["expires_at"] < datetime.now(timezone.utc):
+        if (
+            record
+            and record["status"] == "pending"
+            and ensure_aware_utc(record["expires_at"]) < datetime.now(UTC)
+        ):
             await self.session.execute(
                 update(approvals).where(approvals.c.id == approval_id).values(status="expired")
             )

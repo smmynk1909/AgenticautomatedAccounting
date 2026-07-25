@@ -1,16 +1,15 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
-
+from awp_mcp_base.uow import UnitOfWork
 from awp_shared.audit_mw import AuditEvent
 
 from awp_mcp_audit.store import EventStore
-from awp_mcp_base.uow import UnitOfWork
 
 
 def _event(**overrides: object) -> AuditEvent:
     defaults: dict[str, object] = dict(
-        ts=datetime(2026, 7, 25, 10, 0, 0, tzinfo=timezone.utc),
+        ts=datetime(2026, 7, 25, 10, 0, 0, tzinfo=UTC),
         agent_id="FIN-1",
         server="finance",
         tool="post_journal",
@@ -40,7 +39,7 @@ async def test_query_filters_by_day_and_agent(uow: UnitOfWork) -> None:
         store = EventStore(session)
         await store.append(_event(agent_id="FIN-1"))
         await store.append(_event(agent_id="HR-1"))
-        await store.append(_event(agent_id="FIN-1", ts=datetime(2026, 7, 26, tzinfo=timezone.utc)))
+        await store.append(_event(agent_id="FIN-1", ts=datetime(2026, 7, 26, tzinfo=UTC)))
 
     async with uow() as session:
         store = EventStore(session)

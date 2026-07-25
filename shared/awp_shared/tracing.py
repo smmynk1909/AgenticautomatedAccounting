@@ -28,7 +28,9 @@ def _tracer() -> Any:
 
 
 @contextlib.contextmanager
-def start_span(name: str, *, trace_id: uuid.UUID | str | None = None, **attrs: Any) -> Iterator[None]:
+def start_span(
+    name: str, *, trace_id: uuid.UUID | str | None = None, **attrs: Any
+) -> Iterator[None]:
     tracer = _tracer()
     if tracer is None or not os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT"):
         yield

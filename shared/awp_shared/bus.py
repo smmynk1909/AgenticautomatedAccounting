@@ -12,7 +12,7 @@ from __future__ import annotations
 import asyncio
 import time
 from collections.abc import Awaitable, Callable
-from typing import Any
+from typing import Any, cast
 
 import structlog
 from redis.asyncio import Redis
@@ -83,9 +83,14 @@ class TaskBus:
         stream = stream_name(agent)
         await self._ensure_group(stream)
         while stop is None or not stop.is_set():
-            resp: list[tuple[str, list[tuple[str, dict[str, str]]]]] = await self._redis.xreadgroup(
+            # redis-py's XREADGROUP return type is a broad union in its stubs
+            # (shape varies with flags we don't use here); `cast` documents
+            # the shape this call actually produces rather than widening the
+            # variable's type and losing precision everywhere it's used below.
+            raw = await self._redis.xreadgroup(
                 CONSUMER_GROUP, consumer_name, {stream: ">"}, count=10, block=block_ms
             )
+            resp = cast(list[tuple[str, list[tuple[str, dict[str, str]]]]], raw)
             if not resp:
                 continue
             for _stream, messages in resp:
@@ -124,7 +129,9 @@ class TaskBus:
                 delay = RETRY_DELAYS_S[min(attempt, len(RETRY_DELAYS_S) - 1)]
                 asyncio.create_task(self._delayed_readd(stream, env, attempt + 1, delay))
 
-    async def _delayed_readd(self, stream: str, env: TaskEnvelope, attempt: int, delay_s: int) -> None:
+    async def _delayed_readd(
+        self, stream: str, env: TaskEnvelope, attempt: int, delay_s: int
+    ) -> None:
         await asyncio.sleep(delay_s)
         await self._redis.xadd(stream, {"envelope": env.model_dump_json(), "attempt": str(attempt)})
 

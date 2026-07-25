@@ -4,13 +4,11 @@ from __future__ import annotations
 
 import os
 
-from fastapi import FastAPI
-
-from awp_shared.bus import make_redis
-from awp_shared.config import validate_all
-
 from awp_mcp_base.asgi import build_asgi_app
 from awp_mcp_base.uow import UnitOfWork, make_engine
+from awp_shared.bus import make_redis
+from awp_shared.config import validate_all
+from fastapi import FastAPI
 
 from awp_mcp_audit.server import make_audit_server
 
