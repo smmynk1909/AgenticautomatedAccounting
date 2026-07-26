@@ -94,6 +94,25 @@ class ApprovalStore:
             .values(status="rejected", rejected_by=user_id, rejection_reason=reason)
         )
 
+    async def list_pending(
+        self, *, roles: list[str] | None = None, limit: int = 100
+    ) -> list[dict[str, Any]]:
+        """`roles=None` returns every pending approval (admin view); a role
+        list filters to gates that role can act on — the gateway's
+        `GET /api/approvals/inbox` (doc 11 §5) always passes the requesting
+        human's own roles, never `None`."""
+        stmt = (
+            select(approvals)
+            .where(approvals.c.status == "pending")
+            .order_by(approvals.c.created_at)
+            .limit(limit)
+        )
+        rows = [dict(r) for r in (await self.session.execute(stmt)).mappings().all()]
+        if roles is None:
+            return rows
+        role_set = set(roles)
+        return [r for r in rows if role_set & set(r["approver_roles"])]
+
     async def mark_expired_if_due(self, approval_id: str) -> dict[str, Any] | None:
         record = await self.get(approval_id)
         if (

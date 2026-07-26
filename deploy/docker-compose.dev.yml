@@ -1,6 +1,8 @@
-# Sprint 1 stack — DEVIATIONS.md #3: trimmed to what Sprint 1 needs (Postgres,
-# Redis, MinIO, Ollama, mcp-audit, mcp-approvals). Qdrant/Gitea/Keycloak/
-# observability are added to this same file as their owning sprints land.
+# Sprint 1-4 stack — DEVIATIONS.md #3: trimmed to what's landed so far
+# (Postgres, Redis, MinIO, Ollama, mcp-audit, mcp-approvals, mcp-erp,
+# mcp-comms, mcp-docs, gateway, orch0, sup1, adm1, scheduler). Qdrant/Gitea/
+# Keycloak/observability/the remaining agent containers/web are added to
+# this same file as their owning sprints land.
 #
 # Usage: `make up` (== `docker compose -f deploy/docker-compose.dev.yml
 # --env-file .env up -d`). Build contexts are the repo root so each service's
@@ -15,7 +17,9 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
-      - "5432:5432"
+      # See .env.example's Postgres comment: defaults to a non-standard host
+      # port because some dev boxes already have a native postgres on 5432.
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
@@ -94,6 +98,11 @@ services:
       AWP_DEV_JWT_SECRET: ${AWP_DEV_JWT_SECRET}
       AWP_APPROVAL_JWT_SECRET: ${AWP_APPROVAL_JWT_SECRET}
       AWP_JWT_ISSUER: ${AWP_JWT_ISSUER}
+      # awp_shared.config.validate_all() validates every config/*.yaml at
+      # boot, including models.yaml — whose `gateway_url` interpolates this
+      # var — even for servers (like this one) that never call the LLM
+      # themselves. Omitting it here crash-loops the container on start.
+      MODEL_GATEWAY_URL: http://ollama:11434/v1
       AWP_AUDIT_SPOOL_DIR: /app/.spool/audit
     volumes:
       - audit_spool:/app/.spool/audit
@@ -118,6 +127,7 @@ services:
       AWP_DEV_JWT_SECRET: ${AWP_DEV_JWT_SECRET}
       AWP_APPROVAL_JWT_SECRET: ${AWP_APPROVAL_JWT_SECRET}
       AWP_JWT_ISSUER: ${AWP_JWT_ISSUER}
+      MODEL_GATEWAY_URL: http://ollama:11434/v1
       MCP_AUDIT_URL: http://mcp-audit:8000
     ports:
       - "8002:8000"
@@ -140,9 +150,190 @@ services:
       AWP_DEV_JWT_SECRET: ${AWP_DEV_JWT_SECRET}
       AWP_APPROVAL_JWT_SECRET: ${AWP_APPROVAL_JWT_SECRET}
       AWP_JWT_ISSUER: ${AWP_JWT_ISSUER}
+      MODEL_GATEWAY_URL: http://ollama:11434/v1
       MCP_AUDIT_URL: http://mcp-audit:8000
     ports:
       - "8003:8000"
+
+  mcp-comms:
+    build:
+      context: ..
+      dockerfile: mcps/comms/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mcp-audit:
+        condition: service_started
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      REDIS_URL: redis://redis:6379/0
+      AWP_DEV_JWT_SECRET: ${AWP_DEV_JWT_SECRET}
+      AWP_APPROVAL_JWT_SECRET: ${AWP_APPROVAL_JWT_SECRET}
+      AWP_JWT_ISSUER: ${AWP_JWT_ISSUER}
+      MODEL_GATEWAY_URL: http://ollama:11434/v1
+      MCP_AUDIT_URL: http://mcp-audit:8000
+    ports:
+      - "8004:8000"
+
+  mcp-docs:
+    build:
+      context: ..
+      dockerfile: mcps/docs/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      mcp-audit:
+        condition: service_started
+    environment:
+      # No Postgres table for mcp-docs (doc 12 §2's tree lists none) — scope
+      # is stored as MinIO object metadata instead (storage.py).
+      REDIS_URL: redis://redis:6379/0
+      AWP_DEV_JWT_SECRET: ${AWP_DEV_JWT_SECRET}
+      AWP_APPROVAL_JWT_SECRET: ${AWP_APPROVAL_JWT_SECRET}
+      AWP_JWT_ISSUER: ${AWP_JWT_ISSUER}
+      MODEL_GATEWAY_URL: http://ollama:11434/v1
+      MCP_AUDIT_URL: http://mcp-audit:8000
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      MINIO_BUCKET: ${MINIO_BUCKET}
+      MINIO_SECURE: "false"
+    ports:
+      - "8005:8000"
+
+  gateway:
+    build:
+      context: ..
+      dockerfile: gateway/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mcp-erp:
+        condition: service_started
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      REDIS_URL: redis://redis:6379/0
+      AWP_DEV_JWT_SECRET: ${AWP_DEV_JWT_SECRET}
+      AWP_APPROVAL_JWT_SECRET: ${AWP_APPROVAL_JWT_SECRET}
+      AWP_JWT_ISSUER: ${AWP_JWT_ISSUER}
+      MODEL_GATEWAY_URL: http://ollama:11434/v1
+      MCP_ERP_URL: http://mcp-erp:8000
+      AWP_ENV: ${AWP_ENV}
+    ports:
+      - "8000:8000"
+
+  orch0:
+    build:
+      context: ..
+      dockerfile: agents/orch0/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mcp-erp:
+        condition: service_started
+      ollama:
+        condition: service_started
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      REDIS_URL: redis://redis:6379/0
+      AWP_DEV_JWT_SECRET: ${AWP_DEV_JWT_SECRET}
+      AWP_APPROVAL_JWT_SECRET: ${AWP_APPROVAL_JWT_SECRET}
+      AWP_JWT_ISSUER: ${AWP_JWT_ISSUER}
+      MODEL_GATEWAY_URL: http://ollama:11434/v1
+      MODEL_GEN: ${MODEL_GEN}
+      MCP_ERP_URL: http://mcp-erp:8000
+      MCP_APPROVALS_URL: http://mcp-approvals:8000
+      MCP_AUDIT_URL: http://mcp-audit:8000
+
+  adm1:
+    build:
+      context: ..
+      dockerfile: agents/adm1/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mcp-erp:
+        condition: service_started
+      mcp-docs:
+        condition: service_started
+      mcp-approvals:
+        condition: service_started
+      mcp-comms:
+        condition: service_started
+      ollama:
+        condition: service_started
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      REDIS_URL: redis://redis:6379/0
+      AWP_DEV_JWT_SECRET: ${AWP_DEV_JWT_SECRET}
+      AWP_APPROVAL_JWT_SECRET: ${AWP_APPROVAL_JWT_SECRET}
+      AWP_JWT_ISSUER: ${AWP_JWT_ISSUER}
+      MODEL_GATEWAY_URL: http://ollama:11434/v1
+      MODEL_SMALL: ${MODEL_SMALL}
+      MCP_ERP_URL: http://mcp-erp:8000
+      MCP_DOCS_URL: http://mcp-docs:8000
+      MCP_APPROVALS_URL: http://mcp-approvals:8000
+      MCP_COMMS_URL: http://mcp-comms:8000
+
+  sup1:
+    build:
+      context: ..
+      dockerfile: agents/sup1/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mcp-erp:
+        condition: service_started
+      ollama:
+        condition: service_started
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      REDIS_URL: redis://redis:6379/0
+      AWP_DEV_JWT_SECRET: ${AWP_DEV_JWT_SECRET}
+      AWP_APPROVAL_JWT_SECRET: ${AWP_APPROVAL_JWT_SECRET}
+      AWP_JWT_ISSUER: ${AWP_JWT_ISSUER}
+      MODEL_GATEWAY_URL: http://ollama:11434/v1
+      MODEL_SMALL: ${MODEL_SMALL}
+      MCP_ERP_URL: http://mcp-erp:8000
+
+  scheduler:
+    build:
+      context: ..
+      dockerfile: scheduler/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mcp-erp:
+        condition: service_started
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      REDIS_URL: redis://redis:6379/0
+      AWP_DEV_JWT_SECRET: ${AWP_DEV_JWT_SECRET}
+      AWP_APPROVAL_JWT_SECRET: ${AWP_APPROVAL_JWT_SECRET}
+      AWP_JWT_ISSUER: ${AWP_JWT_ISSUER}
+      MODEL_GATEWAY_URL: http://ollama:11434/v1
+      MCP_ERP_URL: http://mcp-erp:8000
 
 volumes:
   pgdata:

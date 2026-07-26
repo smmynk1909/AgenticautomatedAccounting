@@ -17,3 +17,25 @@ class OrchestratorTaskRepo(RepoBase):
         stmt = select(self.table).where(self.table.c.parent == parent_task_id)
         rows = (await self.session.execute(stmt)).mappings().all()
         return [dict(r) for r in rows]
+
+    async def query(
+        self,
+        *,
+        agent: str | None = None,
+        status: str | None = None,
+        top_level_only: bool = False,
+        limit: int = 100,
+    ) -> list[dict[str, Any]]:
+        """`top_level_only`: rows with no `parent` — e.g. ORCH-0's own
+        scheduler sweep (doc 02 §7) looking for open DAGs to reconcile, as
+        opposed to the sub-tasks it dispatched under them."""
+        stmt = select(self.table)
+        if agent:
+            stmt = stmt.where(self.table.c.agent == agent)
+        if status:
+            stmt = stmt.where(self.table.c.status == status)
+        if top_level_only:
+            stmt = stmt.where(self.table.c.parent.is_(None))
+        stmt = stmt.order_by(self.table.c.created_at).limit(limit)
+        rows = (await self.session.execute(stmt)).mappings().all()
+        return [dict(r) for r in rows]

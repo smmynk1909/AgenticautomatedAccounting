@@ -113,3 +113,44 @@ async def test_get_task_status_by_parent_returns_children(erp_server: AwpMcpServ
     )
     assert len(status["children"]) == 1
     assert status["children"][0]["intent"] == "issue_device"
+
+
+@pytest.mark.asyncio
+async def test_query_tasks_top_level_only_filters_out_children(erp_server: AwpMcpServer) -> None:
+    parent_env = _envelope(intent="onboard_employee", to_agent=AgentId.ORCH0)
+    parent_result = await erp_server.dispatch_raw(
+        "dispatch_task", {"envelope": parent_env}, _headers(_dispatch_token())
+    )
+    child_env = _envelope(
+        intent="issue_device", to_agent=AgentId.ADM1, parent_task_id=parent_result["task_id"]
+    )
+    await erp_server.dispatch_raw(
+        "dispatch_task", {"envelope": child_env}, _headers(_dispatch_token())
+    )
+
+    result = await erp_server.dispatch_raw(
+        "query_tasks",
+        {"agent": "ORCH-0", "top_level_only": True},
+        _headers(_read_token()),
+    )
+    assert [t["task_id"] for t in result["tasks"]] == [parent_result["task_id"]]
+
+
+@pytest.mark.asyncio
+async def test_query_tasks_filters_by_status(erp_server: AwpMcpServer) -> None:
+    env = _envelope()
+    result = await erp_server.dispatch_raw(
+        "dispatch_task", {"envelope": env}, _headers(_dispatch_token())
+    )
+    await erp_server.dispatch_raw(
+        "update_task", {"task_id": result["task_id"], "status": "done"}, _headers(_write_token())
+    )
+
+    pending = await erp_server.dispatch_raw(
+        "query_tasks", {"agent": "FIN-1", "status": "pending"}, _headers(_read_token())
+    )
+    done = await erp_server.dispatch_raw(
+        "query_tasks", {"agent": "FIN-1", "status": "done"}, _headers(_read_token())
+    )
+    assert result["task_id"] not in [t["task_id"] for t in pending["tasks"]]
+    assert result["task_id"] in [t["task_id"] for t in done["tasks"]]

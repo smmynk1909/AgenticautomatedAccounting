@@ -9,6 +9,14 @@ dependencies = [
   "awp-mcp-audit",
   "awp-mcp-approvals",
   "awp-mcp-erp",
+  "awp-mcp-comms",
+  "awp-agent-base",
+  "awp-agent-orch0",
+  "awp-agent-sup1",
+  "awp-agent-adm1",
+  "awp-scheduler",
+  "awp-gateway",
+  "awp-mcp-docs",
 ]
 
 [dependency-groups]
@@ -20,13 +28,19 @@ dev = [
   "pytest-cov>=6.0",
   "fakeredis>=2.21",
   "testcontainers[postgres]>=4.9",
+  # `db`'s own dev group (also lists this) isn't auto-merged into the shared
+  # venv since `db` has `package = false` — needed here directly for
+  # db/tests/test_migrations.py's sync assertion engine against the
+  # testcontainers-postgres URL (was never installed; those tests were always
+  # skipped pre-Docker, so this gap went uncaught until now).
+  "psycopg2-binary>=2.9",
   "pre-commit>=4.0",
 ]
 
 [tool.uv.workspace]
-# Sprint 1 members. `fincore`, `agents/*`, `gateway`, `scheduler` join the glob
-# as later sprints add them (docs/12-SOLUTIONING-REPO.md §5).
-members = ["shared", "db", "mcps/*"]
+# Sprint 1-2 members + agents/*, scheduler, gateway (Sprint 3 on). `fincore`
+# joins once its sprint lands (docs/12-SOLUTIONING-REPO.md §5).
+members = ["shared", "db", "mcps/*", "agents/*", "scheduler", "gateway"]
 
 [tool.uv.sources]
 awp-shared = { workspace = true }
@@ -35,6 +49,14 @@ awp-db = { workspace = true }
 awp-mcp-audit = { workspace = true }
 awp-mcp-approvals = { workspace = true }
 awp-mcp-erp = { workspace = true }
+awp-mcp-comms = { workspace = true }
+awp-agent-orch0 = { workspace = true }
+awp-agent-sup1 = { workspace = true }
+awp-agent-adm1 = { workspace = true }
+awp-agent-base = { workspace = true }
+awp-scheduler = { workspace = true }
+awp-gateway = { workspace = true }
+awp-mcp-docs = { workspace = true }
 
 [tool.ruff]
 line-length = 100
@@ -42,6 +64,12 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "ASYNC"]
+
+[tool.ruff.lint.per-file-ignores]
+# B008 ("no function calls in argument defaults") is a false positive for
+# FastAPI's `Depends(...)` idiom — that IS how FastAPI's DI recognizes a
+# parameter as injected; there is no other correct way to write it.
+"gateway/**/*.py" = ["B008"]
 
 [tool.mypy]
 python_version = "3.12"
@@ -54,12 +82,23 @@ warn_unused_ignores = true
 # once. Passing file paths instead causes mypy to also treat them as CLI
 # targets alongside the import-resolved copy, i.e. "Source file found twice
 # under different module names".
-mypy_path = "shared:mcps/_base:mcps/audit:mcps/approvals:mcps/erp"
+mypy_path = "shared:mcps/_base:mcps/audit:mcps/approvals:mcps/erp:mcps/comms:mcps/docs:agents/_base:agents/orch0:agents/sup1:agents/adm1:scheduler:gateway"
 
 [[tool.mypy.overrides]]
 # Third-party packages that ship no/partial stubs; tighten as coverage improves.
 # (`mcp` itself is unused — DEVIATIONS.md #6 — nothing to ignore for it.)
-module = ["weasyprint.*", "jsonschema.*", "yaml.*", "opentelemetry.*"]
+# weasyprint was dropped for xhtml2pdf (DEVIATIONS.md #13) — its ignore
+# entry moved with it.
+module = [
+  "jsonschema.*",
+  "yaml.*",
+  "opentelemetry.*",
+  "xhtml2pdf.*",
+  "minio.*",
+  "pdfplumber.*",
+  "docx.*",
+  "openpyxl.*",
+]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
@@ -73,10 +112,18 @@ module = [
   "awp_mcp_audit.tests.*",
   "awp_mcp_approvals.tests.*",
   "awp_mcp_erp.tests.*",
+  "awp_mcp_comms.tests.*",
+  "awp_agent_base.tests.*",
+  "awp_agent_orch0.tests.*",
+  "awp_scheduler.tests.*",
+  "awp_gateway.tests.*",
+  "awp_agent_sup1.tests.*",
+  "awp_mcp_docs.tests.*",
+  "awp_agent_adm1.tests.*",
 ]
 disallow_any_generics = false
 disallow_untyped_defs = false
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
-testpaths = ["shared", "mcps", "db"]
+testpaths = ["shared", "mcps", "db", "agents", "scheduler", "gateway"]

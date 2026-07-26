@@ -11,6 +11,14 @@ if [ ! -f .env ]; then
   cp .env.example .env
 fi
 
+# `uv run alembic`/`uv run python db/seed/...` below need $DATABASE_URL etc.
+# in their own process env — `docker compose --env-file .env` only feeds
+# containers, not this script's host-side commands.
+set -a
+# shellcheck disable=SC1091
+source .env
+set +a
+
 echo "==> uv sync"
 uv sync
 

@@ -20,6 +20,7 @@ class TicketRepo(RepoBase):
         category: str | None = None,
         priority: str | None = None,
         assignee_id: str | None = None,
+        requester_id: str | None = None,
         limit: int = 50,
     ) -> list[dict[str, Any]]:
         stmt = select(self.table).where(self.table.c.deleted_at.is_(None))
@@ -31,6 +32,8 @@ class TicketRepo(RepoBase):
             stmt = stmt.where(self.table.c.priority == priority)
         if assignee_id:
             stmt = stmt.where(self.table.c.assignee_id == assignee_id)
+        if requester_id:
+            stmt = stmt.where(self.table.c.requester_id == requester_id)
         stmt = stmt.limit(limit)
         rows = (await self.session.execute(stmt)).mappings().all()
         return [dict(r) for r in rows]

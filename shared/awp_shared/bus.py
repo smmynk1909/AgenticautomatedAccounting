@@ -16,7 +16,9 @@ from typing import Any, cast
 
 import structlog
 from redis.asyncio import Redis
+from redis.exceptions import ConnectionError as RedisConnectionError
 from redis.exceptions import ResponseError
+from redis.exceptions import TimeoutError as RedisTimeoutError
 
 from awp_shared.schemas import AgentId, TaskEnvelope, TaskResult
 
@@ -27,6 +29,7 @@ RETRY_DELAYS_S = (60, 300, 1500)  # 1m, 5m, 25m
 MAX_ATTEMPTS = 3
 DLQ_STREAM = "tasks.dlq"
 CONSUMER_GROUP = "workers"
+RECONNECT_BACKOFF_S = 2.0
 
 # doc 00 §5 examples use short department names, not the AgentId enum values.
 AGENT_STREAM_SUFFIX: dict[AgentId, str] = {
@@ -40,8 +43,22 @@ AGENT_STREAM_SUFFIX: dict[AgentId, str] = {
 
 
 def make_redis(url: str) -> Redis:
-    """Every TaskBus/dedupe/idempotency helper assumes str, not bytes, back."""
-    return Redis.from_url(url, decode_responses=True)
+    """Every TaskBus/dedupe/idempotency helper assumes str, not bytes, back.
+
+    `socket_timeout=None`: `TaskBus.consume`'s `XREADGROUP ... BLOCK
+    <block_ms>` relies on the *server* timing out the blocking read after
+    `block_ms`, not the client socket. redis-py's own default client-side
+    `socket_timeout` is short enough to race that server-side timeout —
+    confirmed by reproduction, not just docs — so a blocking read with no
+    new messages spuriously raises `redis.exceptions.TimeoutError` instead
+    of returning an empty response, which `TaskBus.consume`'s loop doesn't
+    catch and crashes the whole worker process (doc 00 §5 assumes at-least-
+    once delivery from a *running* consumer, not a crash-looping one).
+    `fakeredis` (every unit test) doesn't model real socket timeouts, so
+    this was never caught until a real bus consumer — ORCH-0, SUP-1 — ran
+    against real Redis for the first time (Sprint 3).
+    """
+    return Redis.from_url(url, decode_responses=True, socket_timeout=None)
 
 
 def stream_name(agent: AgentId) -> str:
@@ -83,13 +100,29 @@ class TaskBus:
         stream = stream_name(agent)
         await self._ensure_group(stream)
         while stop is None or not stop.is_set():
-            # redis-py's XREADGROUP return type is a broad union in its stubs
-            # (shape varies with flags we don't use here); `cast` documents
-            # the shape this call actually produces rather than widening the
-            # variable's type and losing precision everywhere it's used below.
-            raw = await self._redis.xreadgroup(
-                CONSUMER_GROUP, consumer_name, {stream: ">"}, count=10, block=block_ms
-            )
+            try:
+                # redis-py's XREADGROUP return type is a broad union in its
+                # stubs (shape varies with flags we don't use here); `cast`
+                # documents the shape this call actually produces rather
+                # than widening the variable's type and losing precision
+                # everywhere it's used below.
+                raw = await self._redis.xreadgroup(
+                    CONSUMER_GROUP, consumer_name, {stream: ">"}, count=10, block=block_ms
+                )
+            except (RedisTimeoutError, RedisConnectionError) as exc:
+                # A blocking read timing out is an expected "no messages"
+                # outcome, not a failure (doc 00 §5's "at-least-once
+                # delivery" promise assumes a *running* consumer) — a
+                # transient connection drop is recoverable the same way.
+                # `make_redis`'s `socket_timeout=None` should make the
+                # first case impossible, but this loop must survive either
+                # way: an unhandled crash here kills the whole worker
+                # process (Sprint 3: reproduced against real Redis, the
+                # exact scenario `fakeredis`-based unit tests never
+                # exercise).
+                logger.warning("bus.consume_transient_error", agent=agent.value, error=str(exc))
+                await asyncio.sleep(RECONNECT_BACKOFF_S)
+                continue
             resp = cast(list[tuple[str, list[tuple[str, dict[str, str]]]]], raw)
             if not resp:
                 continue

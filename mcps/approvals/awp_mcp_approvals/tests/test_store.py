@@ -46,6 +46,37 @@ async def test_record_vote_accumulates(uow: UnitOfWork) -> None:
 
 
 @pytest.mark.asyncio
+async def test_list_pending_filters_by_role(uow: UnitOfWork) -> None:
+    async with uow() as session:
+        store = ApprovalStore(session)
+        await store.create(
+            gate="invoice_issue",
+            payload={"x": 1},
+            requested_by="FIN-1",
+            approver_roles=["finance_head"],
+            n_required=1,
+            ttl_h=24,
+        )
+        await store.create(
+            gate="shortlist_publish",
+            payload={"x": 2},
+            requested_by="HR-1",
+            approver_roles=["recruiter"],
+            n_required=1,
+            ttl_h=24,
+        )
+
+    async with uow() as session:
+        finance_view = await ApprovalStore(session).list_pending(roles=["finance_head"])
+        recruiter_view = await ApprovalStore(session).list_pending(roles=["recruiter"])
+        all_view = await ApprovalStore(session).list_pending(roles=None)
+
+    assert [r["gate"] for r in finance_view] == ["invoice_issue"]
+    assert [r["gate"] for r in recruiter_view] == ["shortlist_publish"]
+    assert len(all_view) == 2
+
+
+@pytest.mark.asyncio
 async def test_mark_expired_if_due_transitions_status(uow: UnitOfWork) -> None:
     async with uow() as session:
         store = ApprovalStore(session)

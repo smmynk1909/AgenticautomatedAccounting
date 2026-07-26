@@ -75,16 +75,18 @@ def register_ticket_tools(server: AwpMcpServer, uow: UnitOfWork) -> None:
 
     @server.tool()
     async def query_tickets(payload: dict[str, Any], ctx: Ctx) -> dict[str, Any]:
-        # NOTE: doc 08 §1 scopes this "scope-filtered: dept agents see their
-        # own categories, SUP-1 sees all" — full per-caller category ACL
-        # enforcement lands with the gateway's RBAC layer (Sprint 3); for now
-        # every caller with erp.tickets.read gets the filters they ask for.
+        # doc 08 §1 "scope-filtered: dept agents see their own categories,
+        # SUP-1 sees all" — category ACL enforcement is gateway/awp_gateway
+        # (Sprint 3); this tool just applies whatever filters it's given
+        # (including `requester_id`, for the gateway's employee self-service
+        # "own tickets" view, roles.yaml).
         async with uow() as session:
             rows = await TicketRepo(session).query(
                 status=payload.get("status"),
                 category=payload.get("category"),
                 priority=payload.get("priority"),
                 assignee_id=payload.get("assignee_id"),
+                requester_id=payload.get("requester_id"),
                 limit=payload.get("limit", 50),
             )
         return {"tickets": rows}

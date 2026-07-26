@@ -1,9 +1,11 @@
-from typing import cast
+import asyncio
+from typing import Any, cast
 
 import pytest
 from fakeredis.aioredis import FakeRedis
+from redis.exceptions import TimeoutError as RedisTimeoutError
 
-from awp_shared.bus import DLQ_STREAM, MAX_ATTEMPTS, TaskBus, stream_name
+from awp_shared.bus import DLQ_STREAM, MAX_ATTEMPTS, TaskBus, make_redis, stream_name
 from awp_shared.schemas import AgentId, TaskEnvelope, TaskResult, TaskStatus
 
 
@@ -100,6 +102,52 @@ async def test_failed_handler_at_max_attempts_goes_to_dlq() -> None:
 
     dlq_len = await redis.xlen(DLQ_STREAM)
     assert dlq_len == 1
+
+
+def test_make_redis_disables_client_side_socket_timeout() -> None:
+    # Reproduced against real Redis (Sprint 3): redis-py's default
+    # `socket_timeout` races `XREADGROUP ... BLOCK <ms>`'s server-side
+    # timeout and raises a spurious `redis.exceptions.TimeoutError` on
+    # every "no new messages" poll — crash-looping any long-running
+    # `TaskBus.consume` worker. `fakeredis` doesn't model this, so this
+    # only checks the client is constructed correctly, not the symptom.
+    redis = make_redis("redis://localhost:6379/0")
+    assert redis.connection_pool.connection_kwargs["socket_timeout"] is None
+
+
+@pytest.mark.asyncio
+async def test_consume_survives_transient_redis_timeout_and_keeps_polling(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Isolates the resilience property itself (doesn't crash, keeps
+    # retrying) from fakeredis's blocking-read timing semantics: every
+    # `xreadgroup` call raises, deterministically, and the loop must
+    # survive each one rather than propagating and killing the worker.
+    monkeypatch.setattr("awp_shared.bus.RECONNECT_BACKOFF_S", 0.01)
+    redis = _redis()
+    bus = TaskBus(redis)
+
+    call_count = 0
+    stop = asyncio.Event()
+
+    async def always_times_out(*args: Any, **kwargs: Any) -> Any:
+        nonlocal call_count
+        call_count += 1
+        if call_count >= 3:
+            stop.set()
+        raise RedisTimeoutError("Timeout reading from redis:6379")
+
+    redis.xreadgroup = always_times_out  # type: ignore[method-assign]
+
+    async def handler(e: TaskEnvelope) -> TaskResult:
+        return TaskResult(task_id=e.task_id, status=TaskStatus.DONE, summary="ok")
+
+    await asyncio.wait_for(
+        bus.consume(AgentId.FIN1, handler, consumer_name="c1", block_ms=100, stop=stop),
+        timeout=5,
+    )
+
+    assert call_count >= 3
 
 
 @pytest.mark.asyncio

@@ -114,3 +114,16 @@ def register_task_tools(server: AwpMcpServer, uow: UnitOfWork) -> None:
             assert parent is not None  # the not-task_id-and-not-parent case already raised above
             children = await repo.children(parent)
             return {"children": children}
+
+    @server.tool()
+    async def query_tasks(payload: dict[str, Any], ctx: Ctx) -> dict[str, Any]:
+        # doc 02 §7: the scheduler sweeps `agent=ORCH-0, status=in_progress,
+        # top_level_only=true` to find open DAGs to reconcile.
+        async with uow() as session:
+            rows = await OrchestratorTaskRepo(session).query(
+                agent=payload.get("agent"),
+                status=payload.get("status"),
+                top_level_only=bool(payload.get("top_level_only", False)),
+                limit=payload.get("limit", 100),
+            )
+        return {"tasks": rows}

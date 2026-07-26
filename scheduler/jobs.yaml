@@ -1,0 +1,46 @@
+# Cron -> TaskEnvelope dispatch — doc 02 §7 (owned by ORCH-0's scheduler
+# sidecar). `schedule` matches doc 02 §7's table exactly except the two rows
+# below that aren't included:
+#   - `project_health_report` (weekly): needs a project-listing capability
+#     to fan out per active project. No MCP tool exposes that yet (mcp-erp
+#     has no tools_projects.py; mcp-projects itself is Sprint 9) —
+#     dispatching with a fabricated project_id would be worse than not
+#     dispatching. Revisit once that capability exists.
+#   - quarterly "training-needs refresh": not a registered intent in
+#     config/intents.yaml at all (plan_training is per-employee/team, not a
+#     standalone global-refresh intent) — nothing to dispatch to yet.
+#
+# `payload_fn` names a function in awp_scheduler.payloads that computes the
+# TaskEnvelope payload from `now` (e.g. the current month for run_payroll).
+# `to_agent` must match config/intents.yaml's `agent` for `intent` — checked
+# at dispatch time, not just here.
+
+- name: run_payroll_monthly
+  schedule: { day: 25, hour: 9, minute: 0 }
+  intent: run_payroll
+  to_agent: FIN-1
+  payload_fn: current_month
+
+- name: dashboard_refresh_daily
+  schedule: { hour: 8, minute: 0 }
+  intent: dashboard_refresh
+  to_agent: ADM-1
+  payload_fn: none
+
+- name: sla_report_daily
+  schedule: { hour: 8, minute: 0 }
+  intent: sla_report
+  to_agent: SUP-1
+  payload_fn: none
+
+- name: timeline_risk_scan_weekly
+  schedule: { weekday: 0, hour: 9, minute: 0 } # Monday
+  intent: timeline_risk_scan
+  to_agent: OPS-1
+  payload_fn: none
+
+- name: quarterly_review_pack
+  schedule: { quarterly: true, hour: 9, minute: 0 }
+  intent: quarterly_review_pack
+  to_agent: ORCH-0
+  payload_fn: current_quarter

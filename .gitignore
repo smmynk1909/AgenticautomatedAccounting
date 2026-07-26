@@ -11,6 +11,10 @@ dist/
 build/
 node_modules/
 web/dist/
+web/test-results/
+web/playwright-report/
+web/blob-report/
+web/tsconfig.tsbuildinfo
 .coverage
 coverage.xml
 htmlcov/

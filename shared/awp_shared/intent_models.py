@@ -50,6 +50,10 @@ class DashboardRefreshIn(BaseModel):
     audience_roles: list[str] = Field(default_factory=list)
 
 
+class ResolveAdminTicketIn(BaseModel):
+    ticket_id: str
+
+
 # --- HR (doc 04) ---
 
 
@@ -194,6 +198,7 @@ INTENT_PAYLOAD_MODELS: dict[str, type[BaseModel]] = {
     "add_candidate_record": AddCandidateRecordIn,
     "update_employee_record": UpdateEmployeeRecordIn,
     "dashboard_refresh": DashboardRefreshIn,
+    "resolve_admin_ticket": ResolveAdminTicketIn,
     "source_candidates": SourceCandidatesIn,
     "audit_resume": AuditResumeIn,
     "shortlist_role": ShortlistRoleIn,

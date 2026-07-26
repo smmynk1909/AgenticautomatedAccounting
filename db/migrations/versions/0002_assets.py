@@ -1,5 +1,8 @@
 """0002_assets — doc 09 §1 "Assets" tables.
 
+id/FK columns are `sa.String(36)`, not `pg.UUID` — see migration
+0001_people's module docstring for why.
+
 Revision ID: 0002_assets
 Revises: 0001_people
 Create Date: 2026-07-25
@@ -34,7 +37,7 @@ def upgrade() -> None:
         "assets",
         sa.Column(
             "id",
-            pg.UUID(as_uuid=True),
+            sa.String(36),
             primary_key=True,
             server_default=sa.text("gen_random_uuid()"),
         ),
@@ -55,11 +58,11 @@ def upgrade() -> None:
         "asset_assignments",
         sa.Column(
             "id",
-            pg.UUID(as_uuid=True),
+            sa.String(36),
             primary_key=True,
             server_default=sa.text("gen_random_uuid()"),
         ),
-        sa.Column("asset_id", pg.UUID(as_uuid=True), sa.ForeignKey("assets.id"), nullable=False),
+        sa.Column("asset_id", sa.String(36), sa.ForeignKey("assets.id"), nullable=False),
         sa.Column("emp_id", sa.String(20), sa.ForeignKey("employees.emp_id"), nullable=False),
         sa.Column("issued_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("ack_at", sa.DateTime(timezone=True), nullable=True),

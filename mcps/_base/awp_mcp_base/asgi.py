@@ -10,6 +10,7 @@ from typing import Any
 
 from awp_shared.errors import AwpError
 from fastapi import FastAPI, Request
+from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 
 from awp_mcp_base.server import AwpMcpServer
@@ -46,6 +47,14 @@ def build_asgi_app(server: AwpMcpServer) -> FastAPI:
                 status_code=_STATUS_BY_CODE.get(info.code, 500),
                 content={"error": info.model_dump(mode="json")},
             )
-        return JSONResponse(content=result if isinstance(result, dict) else {"value": result})
+        # `jsonable_encoder`, not a bare `dict` pass-through: tool handlers
+        # commonly return raw DB rows (`dict(row)` from a SQLAlchemy mapping)
+        # containing `datetime`/`Decimal`/`UUID` values, which plain
+        # `json.dumps` can't serialize. Every existing test calls
+        # `server.dispatch_raw(...)` directly (never through this ASGI
+        # layer), so this path went unexercised until the first real HTTP
+        # round-trip (Sprint 3, gateway -> mcp-erp).
+        content = result if isinstance(result, dict) else {"value": result}
+        return JSONResponse(content=jsonable_encoder(content))
 
     return app

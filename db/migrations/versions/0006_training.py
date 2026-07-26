@@ -40,7 +40,11 @@ def upgrade() -> None:
         ),
         sa.Column("title", sa.String(200), nullable=False),
         sa.Column("provider", sa.String(120), nullable=True),
-        sa.Column("skills", pg.ARRAY(pg.UUID(as_uuid=True)), nullable=False, server_default="{}"),
+        # JSONB, not `pg.ARRAY` — see the `linked_ticket_ids` comment in
+        # migration 0003_tickets_tasks for why (no Core mirror table exists
+        # for `training_catalog` yet — HR-1/mcp-hrsourcing, Sprint 7+ — but
+        # this keeps the convention consistent ahead of that).
+        sa.Column("skills", pg.JSONB(), nullable=False, server_default="[]"),
         sa.Column("hours", sa.Numeric(6, 2), nullable=True),
         sa.Column("cost", sa.Numeric(14, 2), nullable=True),
         *_audit_cols(),

@@ -58,8 +58,10 @@ commenting services out:
 
 | Compose file | Introduced | Adds |
 |---|---|---|
-| `deploy/docker-compose.dev.yml` | Sprint 1 (this build) | postgres, redis, minio, ollama, mcp-audit, mcp-approvals |
-| same file, extended | Sprint 2–6 | mcp-erp, agent containers, gateway, web, mcp-finance |
+| `deploy/docker-compose.dev.yml` | Sprint 1 | postgres, redis, minio, ollama, mcp-audit, mcp-approvals |
+| same file, extended | Sprint 2 | mcp-erp |
+| same file, extended | Sprint 3 (this build) | mcp-comms, gateway, orch0, sup1, scheduler (web/ runs via `make web`, not a container — no reason to containerize a Vite dev server) |
+| same file, extended | Sprint 4–6 | remaining agent containers (adm1, hr1, ops1, fin1), mcp-finance, mcp-docs |
 | same file, extended | Sprint 7 | qdrant, mcp-search, mcp-hrsourcing |
 | same file, extended | Sprint 9 | gitea, mcp-projects |
 | same file, extended | Sprint 11 | keycloak, prometheus, grafana, loki, otel-collector |
@@ -102,7 +104,8 @@ doc 05 §2.4) — internal agent-to-MCP-server calls never need it.
 
 `awp_shared/config.py`'s `CONFIG_DIR` used to be
 `Path(__file__).resolve().parents[2] / "config"` — correct only in an
-editable/source checkout. The container Dockerfiles (`mcps/*/Dockerfile`)
+editable/source checkout. The container Dockerfiles (`mcps/*/Dockerfile`,
+and now `agents/*/Dockerfile`, `gateway/Dockerfile`, `scheduler/Dockerfile`)
 `pip install` each package non-editably, which copies files into
 site-packages and breaks that assumption silently (resolves to some
 site-packages ancestor, not the repo). Fixed by checking `AWP_CONFIG_DIR`
@@ -110,7 +113,317 @@ first, falling back to the old heuristic only for local dev. Every container
 sets `AWP_CONFIG_DIR=/app/config` explicitly; local `uv run`/pytest leave it
 unset and get the fallback.
 
-## 8. Node 26 present, web app (Sprint 3+) not yet scaffolded
+`awp_scheduler/jobs.py`'s `JOBS_YAML` had the exact same bug (a
+`__file__`-relative path to `scheduler/jobs.yaml`) — same fix, `AWP_JOBS_YAML`
+env var checked first, `scheduler/Dockerfile` sets it explicitly.
 
-No deviation yet — noted so Sprint 3 doesn't re-check tooling. `web/`
-(React 18 + Vite + Tailwind per doc 12 §2) targets Node ≥ 20; 26 is fine.
+## 8. Web app: Vite dev server, not containerized
+
+`web/` (React 18 + Vite + Tailwind per doc 12 §2) is scaffolded (Sprint 3):
+chat, tickets, approvals inbox against the gateway's REST/WS API, dev-login
+per DEVIATIONS.md #2. Run via `make web` (npm install + `vite dev`, proxies
+`/api` and `/ws` to the gateway container at `:8000`) rather than its own
+Compose service — a dev server with hot reload has no reason to run in a
+container on a single-developer machine; add one only if/when this needs to
+run in CI or be reachable from another machine.
+
+## 9. Agent checkpointing: explicit save/load, not LangGraph's `BaseCheckpointSaver`
+
+Doc 11 §2 describes `agent_checkpoints` as backing a "LangGraph checkpointer:
+PostgresSaver (table `agent_checkpoints`) keyed by task_id". LangGraph's own
+`BaseCheckpointSaver` protocol (`langgraph-checkpoint-postgres`) owns its own
+migration-managed tables (`checkpoints`, `checkpoint_writes`,
+`checkpoint_blobs`, ...) with a per-superstep write log — a different, much
+larger shape than `agent_checkpoints`' single `(task_id, graph, state)` row
+(doc 09 §1 / migration `0008_platform_dashboard`).
+
+Instead, `agents/_base/awp_agent_base/checkpoint.py`'s `CheckpointStore` does
+a coarser, explicit save/load: `AgentApp.handle` loads the whole `AgentState`
+(pickled) before `graph.ainvoke` and saves it back after — resuming a
+crashed/redelivered task from its last-saved state rather than LangGraph's
+finer per-node resume. This is sufficient for the doc's actual guarantee
+("crash-resume: unacked bus msg redelivered, graph resumes from last
+checkpoint") because every node here is "≤ 1 LLM call" (doc 11 §2) and the
+bus's own dedupe already makes redelivery idempotent-safe — there's no
+in-flight multi-node transaction to protect. Revisit only if an agent graph
+ever needs true mid-superstep resume (e.g. a single node spanning a very
+expensive multi-step tool call) — at that point, swap `CheckpointStore` for
+a real `BaseCheckpointSaver` implementation against new, LangGraph-owned
+tables; `AgentApp`'s public interface (`handle(env) -> TaskResult`) doesn't
+change either way.
+
+## 10. mcp-comms: durable outbox, no real email/Slack/SMS delivery
+
+Docs 07 §4 / 08 §1 list `mcp-comms` tools (`notify_user`, `send_reminder`,
+`incident_broadcast`, plus Phase-2/3 `draft_external_email`,
+`distribute_slip`, `poll_inbox`) as the department agents' one channel for
+reaching humans. No actual delivery integration (SMTP, Slack webhook, SMS
+gateway) exists yet — nothing in docs 00-12 specifies which one Phase 1
+should use, and building against a real one prematurely would mean throwing
+it away when the real choice is made.
+
+`mcps/comms/awp_mcp_comms` (Sprint 3) implements only `notify_user`,
+`send_reminder`, `incident_broadcast` — the three SUP-1 depends on
+(StatusKeeper reminders, SLAWarden escalation, incident broadcast). Each
+call is durably recorded to a new `comms_outbox` table (migration
+`0010_comms_outbox`) instead of actually sent — same "swap the mechanism
+later, keep the contract" pattern as the LLM gateway (Ollama vs vLLM) and
+auth (dev JWT vs Keycloak) deviations. `draft_external_email`,
+`distribute_slip`, and `poll_inbox` remain unimplemented (scopes.yaml
+already marks them Sprint 3-4/Phase 2-3); swapping in a real channel later
+touches only `tools_notify.py`'s `_record` helper (write-through instead of
+write-only), never any caller's scope grant or tool signature.
+
+## 11. Migration id/FK columns: `sa.String(36)`, not `pg.UUID` — check this before building a new Core mirror
+
+Migrations 0001, 0002, 0003, 0008, 0010 originally declared every id/FK
+column `pg.UUID(as_uuid=True)`. Every one of those tables' SQLAlchemy Core
+mirror (`mcps/*/tables.py`, `agents/_base/awp_agent_base/tables.py`)
+deliberately uses generic `sa.String(36)` instead, so the same table object
+works against sqlite in unit tests too (documented in each `tables.py`'s own
+header) — and every insert through that mirror serializes ids as
+`str(uuid4())`, never a native UUID. A Postgres `uuid`-typed column rejects
+a string parameter outright (`asyncpg.exceptions.DatatypeMismatchError`),
+which is exactly what happened the first time this migration set ran
+against a real Postgres (this dev box didn't have Docker until Sprint 3) —
+`mcp-erp.create_ticket`, `dispatch_task`, and `AgentApp`'s own checkpoint
+save all failed in turn until each column was fixed. sqlite-based unit
+tests never caught this (sqlite doesn't enforce column types), and
+`db/seed/generate_synthetic.py` reflects the live schema rather than using
+any `tables.py` import, so it never exercised the mismatch either.
+
+**Fixed**: 0001 (departments/skills_master/salary_bands/roles/candidates/
+employees/comp_structures), 0002 (assets/asset_assignments), 0003
+(tickets/ticket_events/orchestrator_tasks), 0008 (dashboard_items/
+kb_documents/agent_checkpoints), 0010 (comms_outbox).
+
+**Not yet fixed — still `pg.UUID` in 0004 (finance), 0005 (projects/work),
+0006 (training)**: these tables have no `tables.py` Core mirror anywhere in
+the codebase yet (no mcp-finance, mcp-projects, or mcp-hrsourcing built —
+Sprint 5+/7+/9+), so there's nothing to conflict with today. Whoever builds
+that mirror should default to `sa.String(36)` to match the established
+convention and check the migration matches *before* writing tools against
+it, rather than rediscovering this the same way.
+
+## 12. Live end-to-end verification findings (Sprint 3): the first real DF-1 run
+
+Once ORCH-0/SUP-1/scheduler actually ran as containers against real
+Postgres/Redis/Ollama and the gateway dispatched a real chat message all the
+way through (`POST /api/chat/ORCH-0` -> bus -> ORCH-0's LangGraph -> real
+LLM -> `mcp-erp.create_ticket` -> status mirrored back), several more
+latent bugs surfaced that no sqlite/fakeredis/`dispatch_raw`-based unit test
+could have caught — every one of these is a "first real integration"
+finding, not a design change:
+
+- **`mcps/_base/awp_mcp_base/asgi.py`'s `call_tool` didn't JSON-encode raw
+  dict results.** Every test calls `AwpMcpServer.dispatch_raw(...)` directly
+  (Python objects in, Python objects out — no serialization needed), never
+  through this ASGI layer. Any tool returning a raw DB row containing a
+  `datetime`/`Decimal`/`UUID` value (e.g. `get_task_status`, `get_ticket`)
+  crashed with `TypeError: Object of type datetime is not JSON serializable`
+  the first time it was ever called over real HTTP. Fixed with
+  `fastapi.encoders.jsonable_encoder`.
+- **`awp_shared/bus.py`'s `make_redis` never set `socket_timeout`.**
+  redis-py's default client-side socket timeout races
+  `XREADGROUP ... BLOCK <ms>`'s server-side timeout and raises a spurious
+  `redis.exceptions.TimeoutError` on every "no new messages" poll —
+  crash-looping ORCH-0/SUP-1 (both call `TaskBus.consume`) continuously.
+  `fakeredis` doesn't model real socket timeouts, so no unit test ever hit
+  this. Fixed two ways: `socket_timeout=None` on the client, and
+  `TaskBus.consume`'s loop now catches `TimeoutError`/`ConnectionError`
+  around the blocking read and retries after a short backoff instead of
+  propagating (defense in depth — a long-running bus consumer must survive
+  a transient hiccup, not crash-loop over it).
+- **`scheduler/awp_scheduler/main.py`'s tick loop had the same shape of
+  bug**: an unhandled exception from `_tick` (e.g. mcp-erp briefly
+  unreachable mid-restart) crash-looped the whole scheduler process instead
+  of logging and retrying next minute. Fixed the same way — catch, log,
+  continue.
+- **`AgentApp` had no way to reflect a graph-level crash back onto the
+  caller's own durable state.** `make_respond_node` (ORCH-0) only updates
+  `orchestrator_tasks.status` when the graph actually *reaches* the respond
+  node — but a crash before that (e.g. every LLM retry exhausted) returns a
+  `FAILED` `TaskResult` from `AgentApp.handle` that nothing ever persists;
+  the row stays `"pending"` forever even though the bus correctly ack'd the
+  message as handled. Fixed by adding an `on_result` hook to `AgentApp`
+  (called with every `TaskResult` it produces — success, crash, or
+  missing-result — best-effort, never re-raises); both `agents/orch0` and
+  `agents/sup1` wire it to `erp.update_task`.
+- **ORCH-0/SUP-1's own JWT `SCOPES` lists in `main.py` were missing
+  `erp.tasks.write`** (needed for `update_task`) — silently swallowed by
+  the (now-removed) blanket exception handler that used to guard the
+  status-mirroring call, so this had been failing since the call was first
+  added and nothing surfaced it until the new `on_result` hook's own
+  (non-silent) warning log exposed it.
+- **CPU-only LLM inference (no GPU, DEVIATIONS.md #1) is genuinely slow**:
+  ~30-35s for ORCH-0's classify/plan calls (full intent list + system
+  prompt) on first request, faster once the model is warm in RAM. `LLM`'s
+  60s default `timeout_s` was tight enough to force a needless retry on the
+  very first real request. `agents/orch0` and `agents/sup1`'s `main.py` now
+  construct their `LLM` client with `timeout_s=180`.
+- **Nothing above was found by review** — every one of them required
+  actually running the full stack (`docker compose up`, a real chat
+  message, watching container logs/restart counts) to surface. Consistent
+  with this project's own standing practice (see `awp_build_status.md`
+  memory / this file's git history): trust real runs over static review for
+  anything touching infra, serialization, or process lifecycle.
+
+## 13. mcp-docs PDF rendering: `xhtml2pdf` instead of WeasyPrint
+
+Doc 08 §3 doesn't mandate a specific PDF library, but WeasyPrint is the
+obvious default for Jinja2-HTML-to-PDF and was tried first. It requires
+native GTK/Pango/Cairo shared libraries (`libgobject-2.0-0` etc.) that
+aren't present on Windows without a separate GTK3 runtime install —
+confirmed empirically, not assumed: `HTML(string="<h1>test</h1>").write_pdf(...)`
+raised `OSError: cannot load library 'libgobject-2.0-0'` on this dev
+machine. The container would have these libraries (a `python:3.12-slim`
+base doesn't, but they could be `apt-get install`ed), so this could have
+been "works in Docker, silently broken on host" instead of a hard
+incompatibility — either way, a second native dependency for one MCP
+server wasn't worth it.
+
+Switched to `xhtml2pdf` (pure Python, same Jinja2-renders-HTML-then-PDF
+contract — `render_pdf` in `mcps/docs/awp_mcp_docs/tools_render.py` just
+calls `xhtml2pdf.pisa.CreatePDF(html, dest=buf)` instead of
+`HTML(string=html).write_pdf(...)`). Verified working on Windows before
+committing to it as a dependency. Trade-off: xhtml2pdf's CSS support is
+noticeably weaker than WeasyPrint's (older/partial flexbox, no CSS grid) —
+fine for doc 08 §3's simple table-based forms (`issuance_form_v1`); would
+need revisiting if a future template needs richer layout.
+
+`python-docx`, `openpyxl`, `pdfplumber`, and `minio` were all also
+verified to install and import cleanly on Windows (`uv run --with <pkg>
+python -c "import <pkg>"`) before being added to
+`mcps/docs/pyproject.toml` — no other native-library surprises found.
+
+mcp-docs has no Postgres table (doc 12 §2's tree lists none for it) —
+`store_file`'s `scope` (a list of role names, or the literal `"public"`)
+is round-tripped as MinIO object metadata instead
+(`mcps/docs/awp_mcp_docs/storage.py`), since there's nowhere else for it
+to live between a `store_file` and a later `get_file` call. Test coverage
+uses an in-memory `FakeMinio` stand-in
+(`mcps/docs/awp_mcp_docs/tests/fake_minio.py`), not a real MinIO
+server — same pattern as sqlite-for-Postgres / fakeredis-for-Redis
+elsewhere in the test suite. One non-obvious wrinkle worth flagging for
+whoever next writes a MinIO fake: real MinIO/S3 echoes user metadata back
+from `stat_object`/`get_object` prefixed with `x-amz-meta-`, so a fake
+that stores keys verbatim (`"awp-scope"` instead of
+`"x-amz-meta-awp-scope"`) makes every metadata lookup silently miss and
+fall through to defaults — this exact bug briefly made the scope-check
+test pass for the wrong reason (`get_file` always resolved scope as
+`"public"`, so the deny-path assertion never actually exercised the
+deny path) until the fake was fixed to prefix keys on write.
+
+**Found only by `docker compose build` (Sprint 4 live verification), not by
+`uv sync`/`pytest`**: `mcps/docs/pyproject.toml`'s `[tool.hatch.build.
+targets.wheel]` had both `packages = ["awp_mcp_docs"]` (which already
+picks up `templates/` — it's a subdirectory of the package) *and* a
+`force-include` entry for the same path. `uv sync`'s local build absorbed
+the duplicate silently on this Windows dev machine; a fresh `pip install`
+in the Linux container image hard-failed with hatchling's "A second file
+is being added to the wheel archive at the same path" the first time the
+image was actually built. Fixed by dropping the redundant `force-include`
+— `packages` alone is sufficient. Another entry for the running list of
+"this needed a real build/run to surface, not review."
+
+## 14. ADM-1 (doc 03): approval-resume trigger, RegistryKeeper's merge path, and other scoped-down leaves
+
+`agents/adm1` is the first agent whose own graph nodes call a 🔒-gated
+`mcp-erp` tool (`assign_asset` for `issue_device`, `upsert_employee` for
+`update_employee_record`) — ORCH-0 only sets `requires_approval` on the
+sub-tasks *it dispatches*, and SUP-1 has no gated intents at all, so
+neither exercised this path before. A few real gaps and scoping decisions
+came out of building it:
+
+- **Who re-triggers a paused approval flow isn't wired yet.** `nodes.py`'s
+  gated nodes call the ERP tool optimistically (no `approval_token`); on
+  `ApprovalRequiredError` they call `approvals.request_approval`, stash
+  what's needed to finish (`reservation_id`/`employee_record`,
+  `approval_id`) into `state["scratch"]`, and return
+  `TaskStatus.AWAITING_APPROVAL`. `graph.py`'s entry routing correctly
+  resumes from there — a re-invoked task with
+  `scratch["awaiting_approval_for"]` set routes straight to the matching
+  `check_*_approval` node instead of re-running the intent node (which
+  would re-reserve the asset / re-submit the record). What's missing is the
+  *trigger*: `gateway/awp_gateway/routers/approvals.py`'s `approve_endpoint`
+  calls `service.approve()` and returns the token to the human's browser,
+  but nothing re-dispatches a `TaskEnvelope` with the same `task_id` back
+  onto the bus so `AgentApp.handle` reloads the checkpoint and the graph
+  actually resumes. Every resume-path node above is written and
+  graph-level tested directly (`tests/test_graph_acceptance.py`,
+  `tests/test_nodes.py` construct the post-approval state by hand) — this
+  is a real, separate integration task (gateway approve route -> re-dispatch),
+  not something ADM-1 itself is missing.
+- **`awp_agent_base/nodes.py`'s `make_check_approval_node` never captured
+  the approval token.** It recorded `approval_status` from
+  `get_approval_status`'s response but dropped the `token` field entirely
+  — harmless while nothing used it (no agent had a gated flow yet), but it
+  would have silently stranded every future gated flow at "approved" with
+  no way to actually finish. Fixed by also setting
+  `state["scratch"]["approval_token"]` when present; ADM-1's own
+  `check_issue_device_approval`/`check_update_employee_approval` nodes
+  don't reuse this shared node as-is (they need to finalize with the token,
+  not just record status), but the fix benefits any future agent that does.
+- **Duplicate-candidate handling doesn't call `propose_merge`.**
+  `mcp-erp.upsert_candidate` already refuses to insert on a detected
+  duplicate (`ConflictError` with match evidence, doc 08 §1) — that's the
+  actual "zero silent overwrites" enforcement, not something ADM-1 adds.
+  But `propose_merge` merges two *existing* candidate rows; the just-rejected
+  new candidate never got an id, so it structurally doesn't fit that tool.
+  `registry.py`'s `add_candidate_record` path instead pushes a
+  `registry`-panel dashboard item with the match evidence for an admin to
+  review — the "merge proposal, human confirms" artifact doc 03 §6 test 2
+  asks for, just not literally a `propose_merge` call.
+- **DashboardComposer ships one panel (asset register), not the full
+  Executive Action Dashboard.** The CEO/Director/Manager panel sets in doc
+  03 §2.4 (payroll-due flags, delivery risk, headcount vs plan, pending
+  device-acknowledgment count) depend on FIN-1/OPS-1's own
+  `push_dashboard_item` calls (neither agent exists yet) and, for
+  acknowledgments specifically, a query tool that doesn't exist either — no
+  `mcp-erp` tool exposes "assets issued but not yet acknowledged" across
+  assets (`get_asset`'s `history` is per-asset only). No LLM call was added
+  for this one panel either: doc 03 §4 rule 1 reserves the LLM for
+  summarizing/prioritizing *across* panels, and there's only one so far —
+  same reasoning SUP-1's Reporter used to skip its own weekly-report LLM
+  step (doc 07 §3.5).
+- **TicketHandler classifies off `summary_current`, not a full ticket
+  body.** `mcp-erp`'s `tickets` table has no `body`/`subject` column at all
+  (`mcps/erp/awp_mcp_erp/tables.py`) — `create_ticket` only ever persists a
+  120-char `summary_current` derived from what it's given. This is an
+  existing schema gap from Sprint 2, not something introduced here; a
+  future sprint that needs the original text back needs a schema change,
+  not a workaround in `tickets.py`.
+- **`resolve_admin_ticket` is a new intent** (`config/intents.yaml`,
+  `ResolveAdminTicketIn` in `shared/awp_shared/intent_models.py`) added so
+  TicketHandler is reachable and testable as a real graph node rather than
+  dead code — doc 03 doesn't name it, but §2.3's ticket-resolution workflow
+  needs *some* dispatch shape, and nothing currently auto-routes a
+  SUP-1-created `category=device` ticket into it (that real-time
+  ticket-fabric-to-ADM-1 wiring is out of scope for this build, same as the
+  approval-resume trigger above).
+- **RAG playbook lookup (doc 03 §2.3's "check playbook") is deferred.** No
+  `mcp-search` exists yet (Sprint 7) to search SOPs against — same
+  deferral SUP-1's Reporter took for its own RAG-shaped step (doc 07 §3.5).
+
+## 15. web/'s Playwright test mocks the gateway API instead of running against a live stack
+
+Doc 12 §5's Sprint 4 line item is "Playwright ticket flow." `web/e2e/
+ticket-flow.spec.ts` drives a real Chromium browser through the actual
+React app (dev login -> Tickets tab -> create ticket -> see it in the
+list, plus an error-path test), but `page.route()` intercepts every
+`/api/*` call instead of hitting a running gateway/Postgres/Redis stack.
+
+Reasoning: doc 11 §10's testing pyramid already has a dedicated e2e tier
+(compose-up, DF-1..5, k6 load) that's explicitly deferred pending a real
+test runner for it (`README.md`'s Status section, `Makefile`'s `eval`
+placeholder) — building *that* just to satisfy "Playwright ticket flow"
+would mean every `web-e2e` run needs the full Docker stack up, turning a
+UI-wiring check into a second `make bootstrap`. What this test actually
+verifies — does the DevLogin -> Tickets flow call the right endpoints with
+the right bodies and render what comes back, including the error path —
+doesn't need a real backend to verify, only a real browser. `make
+web-e2e` installs Chromium (`npx playwright install --with-deps chromium`)
+and runs `npm run test:e2e`; `playwright.config.ts` starts its own `vite
+dev` server, so this doesn't need `make up` first. If/when the real
+compose-up e2e tier gets built, this test stays as the fast UI-contract
+check underneath it, not a replacement for it.

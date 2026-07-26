@@ -1,5 +1,15 @@
 """0001_people — doc 09 §1 "People" tables.
 
+Every id/FK column is `sa.String(36)`, not `pg.UUID(as_uuid=True)` — these
+tables' Core mirror (mcps/erp/awp_mcp_erp/tables.py) deliberately uses
+generic (non-Postgres-specific) column types throughout so the same table
+objects work against sqlite in unit tests too, and every insert through it
+serializes ids as `str(uuid4())`, not a native UUID — a Postgres UUID column
+rejects that (`DatatypeMismatchError`). Was `pg.UUID` here, undetected until
+this migration first ran against a real Postgres (this machine didn't have
+Docker until now) — see migration 0003_tickets_tasks's `orchestrator_tasks`
+comment for the same fix applied there.
+
 Revision ID: 0001_people
 Revises:
 Create Date: 2026-07-25
@@ -38,7 +48,7 @@ def upgrade() -> None:
         "departments",
         sa.Column(
             "id",
-            pg.UUID(as_uuid=True),
+            sa.String(36),
             primary_key=True,
             server_default=sa.text("gen_random_uuid()"),
         ),
@@ -53,12 +63,15 @@ def upgrade() -> None:
         "skills_master",
         sa.Column(
             "id",
-            pg.UUID(as_uuid=True),
+            sa.String(36),
             primary_key=True,
             server_default=sa.text("gen_random_uuid()"),
         ),
         sa.Column("name", sa.String(120), nullable=False, unique=True),
-        sa.Column("synonyms", pg.ARRAY(sa.Text()), nullable=False, server_default="{}"),
+        # JSONB, not `pg.ARRAY` — see the `linked_ticket_ids` comment in
+        # migration 0003_tickets_tasks for why (Core mirror uses generic
+        # `JSON`, which a Postgres ARRAY column rejects on insert).
+        sa.Column("synonyms", pg.JSONB(), nullable=False, server_default="[]"),
         sa.Column("category", sa.String(60), nullable=True),
         *_audit_cols(),
     )
@@ -67,7 +80,7 @@ def upgrade() -> None:
         "salary_bands",
         sa.Column(
             "id",
-            pg.UUID(as_uuid=True),
+            sa.String(36),
             primary_key=True,
             server_default=sa.text("gen_random_uuid()"),
         ),
@@ -85,17 +98,17 @@ def upgrade() -> None:
         "roles",
         sa.Column(
             "id",
-            pg.UUID(as_uuid=True),
+            sa.String(36),
             primary_key=True,
             server_default=sa.text("gen_random_uuid()"),
         ),
         sa.Column("title", sa.String(160), nullable=False),
         sa.Column("grade", sa.String(20), nullable=False),
         sa.Column(
-            "dept_id", pg.UUID(as_uuid=True), sa.ForeignKey("departments.id"), nullable=False
+            "dept_id", sa.String(36), sa.ForeignKey("departments.id"), nullable=False
         ),
         sa.Column(
-            "salary_band_id", pg.UUID(as_uuid=True), sa.ForeignKey("salary_bands.id"), nullable=True
+            "salary_band_id", sa.String(36), sa.ForeignKey("salary_bands.id"), nullable=True
         ),
         sa.Column("role_profile", pg.JSONB(), nullable=False, server_default="{}"),
         *_audit_cols(),
@@ -105,7 +118,7 @@ def upgrade() -> None:
         "candidates",
         sa.Column(
             "id",
-            pg.UUID(as_uuid=True),
+            sa.String(36),
             primary_key=True,
             server_default=sa.text("gen_random_uuid()"),
         ),
@@ -120,11 +133,16 @@ def upgrade() -> None:
         *_audit_cols(),
     )
     op.create_index("ix_candidates_profile_gin", "candidates", ["profile"], postgresql_using="gin")
+    # Must precede the index below — `gin_trgm_ops` doesn't exist until this
+    # extension is created (only worked before when a real Postgres already
+    # had it from `deploy/postgres/init.sql`'s separate `CREATE EXTENSION
+    # pg_trgm`, which testcontainers-postgres — this migration applied to a
+    # bare `postgres:16` container, no init.sql mounted — never runs).
+    op.execute("CREATE EXTENSION IF NOT EXISTS pg_trgm")
     op.execute(
         "CREATE INDEX ix_candidates_name_trgm ON candidates "
         "USING gin ((profile->>'name') gin_trgm_ops)"
     )
-    op.execute("CREATE EXTENSION IF NOT EXISTS pg_trgm")
 
     op.create_table(
         "employees",
@@ -133,7 +151,7 @@ def upgrade() -> None:
         # RegistryKeeper, doc 03 §2.2), not DB-generated.
         sa.Column("emp_id", sa.String(20), primary_key=True),
         sa.Column(
-            "candidate_id", pg.UUID(as_uuid=True), sa.ForeignKey("candidates.id"), nullable=True
+            "candidate_id", sa.String(36), sa.ForeignKey("candidates.id"), nullable=True
         ),
         sa.Column("name", sa.String(160), nullable=False),
         # pgcrypto-encrypted PII: contact stored as bytea via pgp_sym_encrypt at
@@ -141,18 +159,20 @@ def upgrade() -> None:
         # column type here is bytea, not jsonb, to hold the ciphertext.
         sa.Column("contact_encrypted", sa.LargeBinary(), nullable=True),
         sa.Column(
-            "dept_id", pg.UUID(as_uuid=True), sa.ForeignKey("departments.id"), nullable=False
+            "dept_id", sa.String(36), sa.ForeignKey("departments.id"), nullable=False
         ),
-        sa.Column("role_id", pg.UUID(as_uuid=True), sa.ForeignKey("roles.id"), nullable=False),
+        sa.Column("role_id", sa.String(36), sa.ForeignKey("roles.id"), nullable=False),
         sa.Column("manager_id", sa.String(20), sa.ForeignKey("employees.emp_id"), nullable=True),
         sa.Column("grade", sa.String(20), nullable=False),
         sa.Column("status", sa.String(20), nullable=False, server_default="active"),
         sa.Column("join_date", sa.Date(), nullable=False),
         sa.Column("exit_date", sa.Date(), nullable=True),
-        sa.Column("skills", pg.ARRAY(pg.UUID(as_uuid=True)), nullable=False, server_default="{}"),
+        # JSONB, not `pg.ARRAY` — see the `linked_ticket_ids` comment in
+        # migration 0003_tickets_tasks for why.
+        sa.Column("skills", pg.JSONB(), nullable=False, server_default="[]"),
         sa.Column("docs", pg.JSONB(), nullable=False, server_default="{}"),
         sa.Column(
-            "comp_structure_id", pg.UUID(as_uuid=True), nullable=True
+            "comp_structure_id", sa.String(36), nullable=True
         ),  # FK added after comp_structures exists
         *_audit_cols(),
     )
@@ -166,13 +186,20 @@ def upgrade() -> None:
         "comp_structures",
         sa.Column(
             "id",
-            pg.UUID(as_uuid=True),
+            sa.String(36),
             primary_key=True,
             server_default=sa.text("gen_random_uuid()"),
         ),
         sa.Column("emp_id", sa.String(20), sa.ForeignKey("employees.emp_id"), nullable=False),
-        # pgcrypto-encrypted: salary component breakdown is comp data (doc 09 §1).
-        sa.Column("components_encrypted", sa.LargeBinary(), nullable=False),
+        # pgcrypto-encrypted: salary component breakdown is comp data (doc 09
+        # §1). Nullable like `employees.contact_encrypted` — real encryption
+        # is repo-layer (Sprint 2+), not meaningful for synthetic fixtures
+        # (see db/seed/generate_synthetic.py's seed_employees, which stores
+        # None here deliberately). Was `nullable=False` here — drifted from
+        # this table's own Core mirror (mcps/erp/awp_mcp_erp/tables.py,
+        # already `nullable=True`) — fixed since this migration had never
+        # been applied to a real Postgres before now.
+        sa.Column("components_encrypted", sa.LargeBinary(), nullable=True),
         sa.Column("effective_from", sa.Date(), nullable=False),
         *_audit_cols(),
     )

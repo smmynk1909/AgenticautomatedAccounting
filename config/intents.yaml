@@ -45,6 +45,13 @@
   gate: null
   sla_hours: 1
 
+- intent: resolve_admin_ticket
+  agent: ADM-1
+  payload_model: ResolveAdminTicketIn
+  gate: null              # doc 03 §2.3: auto-resolve threshold is code policy,
+  sla_hours: 4             # not a human approval gate; anything above it escalates
+                            # to a human instead of proceeding, never auto-approves higher
+
 - intent: source_candidates
   agent: HR-1
   payload_model: SourceCandidatesIn

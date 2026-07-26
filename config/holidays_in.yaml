@@ -1,0 +1,24 @@
+# India public holiday calendar referenced by config/sla.yaml's
+# `holidays_ref` — doc 07 §3.4 "business-hours calendar aware (IST, company
+# holidays)". Not consumed by any code yet — SLAWarden (agents/sup1)
+# currently computes calendar-time deadlines only; see that module's
+# docstring for why. This file exists so the format is settled before that
+# arithmetic is added, and so this isn't a dangling reference.
+#
+# National holidays only; add company-specific ones (founding day, etc.) as
+# a separate `company_holidays` list once known.
+2026:
+  - date: "2026-01-26"
+    name: Republic Day
+  - date: "2026-03-04"
+    name: Holi
+  - date: "2026-04-14"
+    name: Ambedkar Jayanti
+  - date: "2026-08-15"
+    name: Independence Day
+  - date: "2026-10-02"
+    name: Gandhi Jayanti
+  - date: "2026-10-20"
+    name: Diwali
+  - date: "2026-12-25"
+    name: Christmas

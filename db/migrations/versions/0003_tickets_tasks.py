@@ -47,9 +47,13 @@ def upgrade() -> None:
         sa.Column(
             "parent_ticket_id", sa.String(24), sa.ForeignKey("tickets.ticket_id"), nullable=True
         ),
-        sa.Column(
-            "linked_ticket_ids", pg.ARRAY(sa.String(24)), nullable=False, server_default="{}"
-        ),
+        # JSONB, not `pg.ARRAY` — this table's Core mirror
+        # (mcps/erp/awp_mcp_erp/tables.py) deliberately uses generic
+        # (non-Postgres-specific) column types throughout so the same table
+        # object works against sqlite in unit tests too; a Postgres ARRAY
+        # column can't accept the JSON `tickets.insert()` sends via that
+        # mirror's `JSON` type (`DatatypeMismatchError`).
+        sa.Column("linked_ticket_ids", pg.JSONB(), nullable=False, server_default="[]"),
         sa.Column("sla_first_response_due", sa.DateTime(timezone=True), nullable=True),
         sa.Column("sla_resolution_due", sa.DateTime(timezone=True), nullable=True),
         sa.Column("summary_current", sa.Text(), nullable=False, server_default=""),
@@ -67,7 +71,7 @@ def upgrade() -> None:
         # append-only — no updated_at/deleted_at, doc 09 §1 explicit "(append-only)"
         sa.Column(
             "id",
-            pg.UUID(as_uuid=True),
+            sa.String(36),
             primary_key=True,
             server_default=sa.text("gen_random_uuid()"),
         ),
@@ -81,10 +85,17 @@ def upgrade() -> None:
 
     op.create_table(
         "orchestrator_tasks",
-        sa.Column("task_id", pg.UUID(as_uuid=True), primary_key=True),
+        # String(36), not `pg.UUID` — this table's Core mirror
+        # (mcps/erp/awp_mcp_erp/tables.py) deliberately uses generic
+        # (non-Postgres-specific) column types throughout so the same table
+        # object works against sqlite in unit tests too; `TaskEnvelope.task_id`
+        # is also always serialized to `str(uuid)` before insert
+        # (tools_tasks.py's `dispatch_task`), never passed as a native UUID —
+        # a Postgres UUID column rejects that (`DatatypeMismatchError`).
+        sa.Column("task_id", sa.String(36), primary_key=True),
         sa.Column(
             "parent",
-            pg.UUID(as_uuid=True),
+            sa.String(36),
             sa.ForeignKey("orchestrator_tasks.task_id"),
             nullable=True,
         ),
@@ -95,7 +106,7 @@ def upgrade() -> None:
         sa.Column("priority", sa.String(2), nullable=False, server_default="P3"),
         sa.Column("sla_deadline", sa.DateTime(timezone=True), nullable=True),
         sa.Column("result", pg.JSONB(), nullable=True),
-        sa.Column("trace_id", pg.UUID(as_uuid=True), nullable=False),
+        sa.Column("trace_id", sa.String(36), nullable=False),
         *_audit_cols(),
     )
     op.create_index("ix_orchestrator_tasks_status", "orchestrator_tasks", ["status"])
