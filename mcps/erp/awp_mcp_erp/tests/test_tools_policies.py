@@ -1,3 +1,5 @@
+from datetime import date
+
 import pytest
 from awp_mcp_base.server import AwpMcpServer
 from awp_mcp_base.uow import UnitOfWork
@@ -5,7 +7,7 @@ from awp_shared.auth import mint_service_jwt
 from awp_shared.config import load_config
 from awp_shared.errors import NotFoundError, ValidationError
 
-from awp_mcp_erp.tables import entitlement_matrix
+from awp_mcp_erp.tables import entitlement_matrix, salary_bands
 
 
 def _headers(token: str) -> dict[str, str]:
@@ -63,6 +65,30 @@ async def test_get_policy_unknown_id_not_found(erp_server: AwpMcpServer) -> None
         await erp_server.dispatch_raw(
             "get_policy", {"policy_id": "no-such-policy"}, _headers(_read_token())
         )
+
+
+async def _seed_salary_band(uow: UnitOfWork) -> None:
+    async with uow() as session:
+        await session.execute(
+            salary_bands.insert().values(
+                id="sb-e3",
+                grade="E3",
+                min="600000",
+                mid="900000",
+                max="1200000",
+                effective_from=date(2026, 4, 1),
+            )
+        )
+
+
+@pytest.mark.asyncio
+async def test_query_policies_salary_bands(erp_server: AwpMcpServer, uow: UnitOfWork) -> None:
+    await _seed_salary_band(uow)
+    result = await erp_server.dispatch_raw(
+        "query_policies", {"domain": "salary_bands", "grade": "E3"}, _headers(_read_token())
+    )
+    assert len(result["policies"]) == 1
+    assert float(result["policies"][0]["mid"]) == 900000.0
 
 
 @pytest.mark.asyncio

@@ -74,6 +74,14 @@ class RoleRepo(RepoBase):
 class SalaryBandRepo(RepoBase):
     table = salary_bands
 
+    async def query(self, *, grade: str | None = None) -> list[dict[str, Any]]:
+        stmt = select(self.table).where(self.table.c.deleted_at.is_(None))
+        if grade:
+            stmt = stmt.where(self.table.c.grade == grade)
+        stmt = stmt.order_by(self.table.c.effective_from.desc())
+        rows = (await self.session.execute(stmt)).mappings().all()
+        return [dict(r) for r in rows]
+
 
 class CompStructureRepo(RepoBase):
     table = comp_structures

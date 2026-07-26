@@ -37,6 +37,50 @@ async def test_render_pdf_issuance_form_success(docs_server: AwpMcpServer) -> No
     assert result["uri"].startswith("minio://")
 
 
+_SALARY_SLIP_DATA = {
+    "month": "2026-06",
+    "employee": {"name": "Asha Rao", "emp_id": "EMP-1", "dept_id": "ENG"},
+    "earnings": {"basic": "50000", "hra": "20000"},
+    "deductions": {"pf": "1800", "tds": "4030"},
+    "gross": "70000",
+    "net": "64170",
+}
+
+_INVOICE_DATA = {
+    "number": "INV/2026-27/000001",
+    "client": "Acme Corp",
+    "gst_treatment": "intra_state",
+    "lines": [{"description": "Consulting", "quantity": "10", "unit_price": "5000"}],
+    "subtotal": "50000.00",
+    "cgst": "4500.00",
+    "sgst": "4500.00",
+    "igst": "0",
+    "total": "59000.00",
+}
+
+
+@pytest.mark.asyncio
+async def test_render_pdf_salary_slip_success(docs_server: AwpMcpServer) -> None:
+    result = await docs_server.dispatch_raw(
+        "render_pdf",
+        {"template_id": "salary_slip_v1", "data": _SALARY_SLIP_DATA},
+        _headers(_render_token()),
+    )
+    assert result["template_id"] == "salary_slip_v1"
+    assert result["uri"].startswith("minio://")
+
+
+@pytest.mark.asyncio
+async def test_render_pdf_invoice_gst_success(docs_server: AwpMcpServer) -> None:
+    result = await docs_server.dispatch_raw(
+        "render_pdf",
+        {"template_id": "invoice_gst_v1", "data": _INVOICE_DATA},
+        _headers(_render_token()),
+    )
+    assert result["template_id"] == "invoice_gst_v1"
+    assert result["uri"].startswith("minio://")
+
+
 @pytest.mark.asyncio
 async def test_render_pdf_unbuilt_template_404s(docs_server: AwpMcpServer) -> None:
     with pytest.raises(NotFoundError):

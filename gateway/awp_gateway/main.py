@@ -20,6 +20,7 @@ SCOPES = [
     "erp.tickets.write",
     "erp.tickets.read",
     "erp.dashboard.read",
+    "finance.read",
 ]
 
 validate_all()
@@ -29,7 +30,7 @@ _uow = UnitOfWork(_engine)
 _redis = make_redis(os.environ["REDIS_URL"])
 _bus = TaskBus(_redis)
 _mcp = MCP(
-    {"erp": os.environ["MCP_ERP_URL"]},
+    {"erp": os.environ["MCP_ERP_URL"], "finance": os.environ["MCP_FINANCE_URL"]},
     principal_jwt_provider=lambda: mint_service_jwt("gateway-service", SCOPES),
 )
 

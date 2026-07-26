@@ -6,6 +6,7 @@ requires-python = "==3.12.*"
 members = [
     "awp-agent-adm1",
     "awp-agent-base",
+    "awp-agent-fin1",
     "awp-agent-orch0",
     "awp-agent-sup1",
     "awp-db",
@@ -241,6 +242,39 @@ requires-dist = [
     { name = "langgraph", specifier = ">=0.2,<0.3" },
     { name = "redis", specifier = ">=5.0" },
     { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "fakeredis", specifier = ">=2.21" },
+    { name = "pytest", specifier = ">=8.0" },
+    { name = "pytest-asyncio", specifier = ">=0.24" },
+]
+
+[[package]]
+name = "awp-agent-fin1"
+version = "0.1.0"
+source = { editable = "agents/fin1" }
+dependencies = [
+    { name = "awp-agent-base" },
+    { name = "awp-shared" },
+    { name = "langgraph" },
+    { name = "redis" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "fakeredis" },
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "awp-agent-base", editable = "agents/_base" },
+    { name = "awp-shared", editable = "shared" },
+    { name = "langgraph", specifier = ">=0.2,<0.3" },
+    { name = "redis", specifier = ">=5.0" },
 ]
 
 [package.metadata.requires-dev]
@@ -820,6 +854,7 @@ source = { virtual = "." }
 dependencies = [
     { name = "awp-agent-adm1" },
     { name = "awp-agent-base" },
+    { name = "awp-agent-fin1" },
     { name = "awp-agent-orch0" },
     { name = "awp-agent-sup1" },
     { name = "awp-db" },
@@ -854,6 +889,7 @@ dev = [
 requires-dist = [
     { name = "awp-agent-adm1", editable = "agents/adm1" },
     { name = "awp-agent-base", editable = "agents/_base" },
+    { name = "awp-agent-fin1", editable = "agents/fin1" },
     { name = "awp-agent-orch0", editable = "agents/orch0" },
     { name = "awp-agent-sup1", editable = "agents/sup1" },
     { name = "awp-db", virtual = "db" },

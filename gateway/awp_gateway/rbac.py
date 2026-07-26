@@ -60,3 +60,14 @@ _UNRESTRICTED_DASHBOARD_ROLES = frozenset({"director", "ceo"})
 
 def can_view_dashboard_role(principal: Principal, role: str) -> bool:
     return role in principal.roles or bool(set(principal.roles) & _UNRESTRICTED_DASHBOARD_ROLES)
+
+
+# doc 06 §4 rule 4: payroll registers carry every employee's compensation —
+# restricted to the roles that gate payroll_run itself (finance_head,
+# director per config/gates.yaml) plus ceo (same cross-department
+# oversight convention as dashboards).
+_PAYROLL_VIEW_ROLES = frozenset({"finance_head", "director", "ceo"})
+
+
+def can_view_payroll(principal: Principal) -> bool:
+    return bool(set(principal.roles) & _PAYROLL_VIEW_ROLES)

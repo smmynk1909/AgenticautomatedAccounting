@@ -63,6 +63,21 @@ export interface DashboardItem {
   action_link: string | null;
 }
 
+export interface PayrollLine {
+  emp_id: string;
+  earnings: Record<string, string>;
+  deductions: Record<string, string>;
+  gross: string;
+  net: string;
+}
+
+export interface PayrollRun {
+  register_id?: string;
+  month: string;
+  status: string;
+  register: { lines: PayrollLine[]; totals: Record<string, string> } | null;
+}
+
 export interface Approval {
   id: string;
   gate: string;
@@ -99,6 +114,8 @@ export const api = {
 
   getDashboard: (role: string) =>
     request<{ items: DashboardItem[] }>(`/api/dashboard/${role}`),
+
+  getPayrollRun: (month: string) => request<PayrollRun>(`/api/payroll/runs/${month}`),
 
   approvalsInbox: () => request<{ approvals: Approval[] }>("/api/approvals/inbox"),
 

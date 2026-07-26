@@ -1,0 +1,36 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      body { font-family: Helvetica, Arial, sans-serif; font-size: 11pt; color: #1a1a1a; }
+      h1 { font-size: 15pt; margin-bottom: 2px; }
+      .meta { color: #555; font-size: 9pt; margin-bottom: 16px; }
+      table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+      td, th { border: 1px solid #ccc; padding: 5px 8px; text-align: left; font-size: 10pt; }
+      th { background: #f2f2f2; }
+      .totals td { font-weight: bold; }
+      .confidential { margin-top: 24px; font-size: 8pt; color: #888; }
+    </style>
+  </head>
+  <body>
+    <h1>Salary Slip — {{ month }}</h1>
+    <p class="meta">{{ employee.name }} ({{ employee.emp_id }}) &middot; {{ employee.dept_id }}</p>
+
+    <table>
+      <tr><th colspan="2">Earnings</th></tr>
+      {% for key, value in earnings.items() %}
+      <tr><td>{{ key }}</td><td>{{ value }}</td></tr>
+      {% endfor %}
+      <tr><th colspan="2">Deductions</th></tr>
+      {% for key, value in deductions.items() %}
+      <tr><td>{{ key }}</td><td>{{ value }}</td></tr>
+      {% endfor %}
+      <tr class="totals"><td>Gross</td><td>{{ gross }}</td></tr>
+      <tr class="totals"><td>Net Pay</td><td>{{ net }}</td></tr>
+    </table>
+
+    <p class="confidential">This document contains confidential compensation information for
+    the named employee only.</p>
+  </body>
+</html>

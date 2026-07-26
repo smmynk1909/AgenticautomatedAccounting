@@ -14,7 +14,7 @@ and the rest of `docs/00`–`12`. Deviations this build takes from those docs
 
 ## Status
 
-Sprints 1–5 complete and live-verified (`docs/12-SOLUTIONING-REPO.md` §5).
+Sprints 1–6 complete and live-verified (`docs/12-SOLUTIONING-REPO.md` §5).
 
 Sprints 1–2: shared library, DB schema + seed data, `mcp-audit`,
 `mcp-approvals`, `mcp-erp` (people/assets/tickets/tasks/dashboard/policies),
@@ -78,9 +78,10 @@ than reaching into other services, matching the "no MCP server calls
 another MCP server" convention). `fincore`: 56 tests, **100% source
 coverage**, hypothesis property tests for the ledger balance invariant
 (1000 fuzzed examples), payroll LOP monotonicity, round-half-up rounding,
-and regime-comparison consistency. `HR-1`/`OPS-1`, `fincore`'s owning agent
-`FIN-1`, and the remaining three MCP servers are scaffolded in the tree
-below but not yet implemented — see the sprint backlog in the doc.
+and regime-comparison consistency. `HR-1`/`OPS-1` and the remaining three
+MCP servers (`mcp-hrsourcing`, `mcp-search`, `mcp-projects`) are
+scaffolded in the tree below but not yet implemented — see the sprint
+backlog in the doc.
 
 Verified live: `mcp-finance` built and joined the running stack at zero
 restarts. This is the first sprint where the dev Postgres already had the
@@ -96,7 +97,35 @@ patched to match (`DEVIATIONS.md` #16), and a real post_journal call now
 both succeeds when balanced and is rejected by the same Postgres trigger
 when it isn't.
 
-472 tests passing (`uv run pytest -q`), ruff + mypy strict clean across
+Sprint 6: `FIN-1` (doc 06 — payroll run/reissue, expense bookkeeping,
+month-close, invoice creation, tax worksheets, financial-requirement
+projection, all as approval-gated LangGraph flows reusing the ADM-1-
+style optimistic-call/`ApprovalRequiredError`/resume pattern), the doc
+06 §7.1 shadow-diff harness (`scripts/shadow_diff.py` — tested against
+synthetic fixtures; no real manual-payroll data exists yet to validate
+against, that's a Sprint 11 gate), and a `GET /api/payroll/runs/{month}`
+gateway route + `web/` Payroll tab. Per-employee compensation is derived
+from `salary_bands` (grade → band midpoint, 50/20/30 basic/HRA/special
+split) as a stand-in for real `comp_structures` decryption, which doesn't
+exist yet anywhere in the codebase — a user-confirmed simplification,
+`DEVIATIONS.md` #17. A new `finance.get_payroll_run` tool (not in doc 08
+§2's original list) was added once both slip-reissue and the payroll UI
+turned out to need one.
+
+Verified live: `fin1` built and joined the running stack at zero
+restarts. Dispatched a real `run_payroll` task for month `2026-07` over
+the Redis bus — processed all 40 real seeded employees end-to-end
+through real `fincore` tax math (`gross=3,550,000.00`,
+`net=3,045,911.20`, `tds=424,088.80`), rendered all 40 salary slip PDFs
+via `mcp-docs` (fetched one back from MinIO and confirmed it's a genuine
+1-page PDF, not just a nonzero byte count), and requested a real 2-
+approver `payroll_run` gate confirmed via a direct Postgres query. A
+`compute_tax` dispatch completed with no error. This surfaced a real FY-
+scoping bug in month-over-month TDS accumulation, caught by a purpose-
+built regression test before it ever reached Docker — see `DEVIATIONS.md`
+#17.
+
+527 tests passing (`uv run pytest -q`), ruff + mypy strict clean across
 every implemented package (`make test`).
 
 ## Prerequisites
@@ -138,7 +167,7 @@ config/     intents/gates/scopes/routing/sla/models — schema-validated at boot
 shared/     awp_shared: schemas, auth, task bus, LLM client, MCP client, audit mw
 db/         Alembic migrations, DDL extras, synthetic seed generator
 mcps/       one FastMCP server per capability domain (_base + audit + approvals + erp + comms + docs + finance so far)
-agents/     one LangGraph runtime per agent (_base + orch0 + sup1 + adm1 so far; HR-1/OPS-1/FIN-1 not yet implemented)
+agents/     one LangGraph runtime per agent (_base + orch0 + sup1 + adm1 + fin1 so far; HR-1/OPS-1 not yet implemented)
 fincore/    deterministic finance engine — payroll/tax/ledger/invoice/depreciation/reconcile/cashflow
 gateway/    FastAPI + WebSocket API — chat/tasks/tickets/approvals, dev-login, RBAC
 web/        React frontend — chat, tickets, approvals inbox

@@ -16,6 +16,7 @@ dependencies = [
   "awp-agent-orch0",
   "awp-agent-sup1",
   "awp-agent-adm1",
+  "awp-agent-fin1",
   "awp-scheduler",
   "awp-gateway",
   "awp-mcp-docs",
@@ -57,6 +58,7 @@ awp-mcp-finance = { workspace = true }
 awp-agent-orch0 = { workspace = true }
 awp-agent-sup1 = { workspace = true }
 awp-agent-adm1 = { workspace = true }
+awp-agent-fin1 = { workspace = true }
 awp-agent-base = { workspace = true }
 awp-scheduler = { workspace = true }
 awp-gateway = { workspace = true }
@@ -86,7 +88,7 @@ warn_unused_ignores = true
 # once. Passing file paths instead causes mypy to also treat them as CLI
 # targets alongside the import-resolved copy, i.e. "Source file found twice
 # under different module names".
-mypy_path = "fincore:shared:mcps/_base:mcps/audit:mcps/approvals:mcps/erp:mcps/comms:mcps/docs:mcps/finance:agents/_base:agents/orch0:agents/sup1:agents/adm1:scheduler:gateway"
+mypy_path = "fincore:shared:mcps/_base:mcps/audit:mcps/approvals:mcps/erp:mcps/comms:mcps/docs:mcps/finance:agents/_base:agents/orch0:agents/sup1:agents/adm1:agents/fin1:scheduler:gateway"
 
 [[tool.mypy.overrides]]
 # Third-party packages that ship no/partial stubs; tighten as coverage improves.
@@ -125,10 +127,11 @@ module = [
   "awp_mcp_docs.tests.*",
   "awp_agent_adm1.tests.*",
   "awp_mcp_finance.tests.*",
+  "awp_agent_fin1.tests.*",
 ]
 disallow_any_generics = false
 disallow_untyped_defs = false
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
-testpaths = ["shared", "mcps", "db", "agents", "scheduler", "gateway", "fincore"]
+testpaths = ["shared", "mcps", "db", "agents", "scheduler", "gateway", "fincore", "scripts"]

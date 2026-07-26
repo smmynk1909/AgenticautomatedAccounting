@@ -536,3 +536,117 @@ registered in Sprint 1's gate table.
 371 -> 472 tests passing (fincore: 56, 100% source coverage; mcp-finance:
 45, ~92%). `fincore`'s coverage figure is the one doc 12 §5's Sprint 5 DoD
 ("property/golden 95% cov; ledger fuzz invariant") names directly.
+
+## 17. Sprint 6 — FIN-1 (doc 06), payroll shadow diff (doc 06 §7.1), payroll UI
+
+**Compensation source: `salary_bands` proxy, not `comp_structures`.**
+`RunPayrollIn`'s payload is only `{month}` — doc 06's payroll flow expects
+each employee's basic/HRA/special breakdown to come from somewhere, but
+`mcp-erp`'s real per-employee table for this, `comp_structures`, stores
+`components_encrypted` (`LargeBinary`) and no decrypt utility exists
+anywhere in the codebase (not built in any sprint so far). Rather than
+block FIN-1 entirely or build encryption infra out-of-scope, this was
+raised to the user directly (three options: build a minimal decrypt path,
+skip compensation breakdown and pay flat gross, or use `salary_bands` —
+grade -> band midpoint — as a stand-in). The user chose the `salary_bands`
+proxy: `agents/fin1/awp_agent_fin1/payroll_flow.py`'s
+`build_comp_snapshot_row` calls `erp.query_policies(domain=salary_bands,
+grade=...)` and splits the band's `mid` 50% basic / 20% HRA / 30% special
+(falls back to a flat 600000 annual if no band matches the employee's
+grade). This is a real simplification with real consequences — computed
+gross/TDS won't match any actual comp letter until `comp_structures`
+decryption is built — and should be swapped out the moment that infra
+exists; nothing else in the payroll flow depends on the proxy shape, so
+the swap is localized to this one function.
+
+**`finance.get_payroll_run` — a new tool, not in doc 08 §2's original
+list.** Two needs surfaced only once payroll flows were actually being
+built: `generate_salary_slips` (re-issuing slips for an already-computed
+month) and the payroll UI (`web/src/pages/Payroll.tsx`) both need to read
+back an already-computed register, and no doc 08 §2 tool does that
+(`compute_payroll` computes-and-returns but nothing re-fetches). Added
+`get_payroll_run(month)` returning `{register_id, month, status,
+register}` where `register` is the `computed` half of the stored JSON
+(the `snapshot` half — pre-computation inputs — is intentionally not
+exposed here, since nothing external needs it). Scoped under the existing
+`finance.read` permission, no new scope needed.
+
+**`SalaryBandRepo.query` and `query_policies`'s `salary_bands` domain are
+also new** — `mcp-erp` had the `salary_bands` table (doc 09) and a repo
+class for other uses, but no `query_policies` domain branch exposed it to
+callers before FIN-1 needed to read bands by grade.
+
+**Found by a real test, not review**: `PayrollRunRepo.
+tds_deducted_so_far_by_emp`'s FY-scoping filter only checked `month >=
+before_month: continue`, with no lower bound — meaning a payroll run from
+a *different, later* financial year would still be treated as "prior
+months of this FY" if its month string happened to sort before
+`before_month` in isolation. Fixed to bound by both `fy_start_month <=
+month < before_month`. Caught alongside the `register["lines"]` vs
+`register["computed"]["lines"]` nesting bug (same function — see #16)
+by `test_compute_payroll_accumulates_tds_across_months`.
+
+**`anomaly.py`'s anomaly checks are sanity-only, not month-over-month.**
+`flag_anomalies` currently flags `net <= 0` and `tds/gross > 0.50` per
+line — real anomaly detection (this month's gross/net vs last month's,
+per doc 06 §2.1) needs a prior register to diff against. It was written
+before `get_payroll_run` existed; now that the tool exists, a real
+month-over-month comparison is straightforward to add but wasn't — out of
+scope for closing out this sprint, left as a documented follow-up rather
+than silently claimed as done.
+
+**`scripts/shadow_diff.py` — the doc 06 §7.1 harness exists and is
+tested, but has never been run against real manual-payroll data.** There
+is no manual/legacy payroll export to diff against yet in this build (no
+prior system being replaced) — that comparison is Sprint 11's live gate,
+per doc 12 §5. The comparator itself (`compare(computed_lines,
+manual_lines)` -> `ShadowDiffReport`) is fully unit-tested (clean match,
+paisa-level mismatch, missing-employee-both-directions, malformed-line
+raise) against synthetic fixtures, and its CLI entry point works — but
+"the harness runs" and "the harness has validated real payroll" are two
+different claims, and only the first is true today.
+
+**No attendance/LOP data source exists**, so `freeze_payroll_inputs` is
+always called with an empty attendance list — every employee's `lop_days`
+is implicitly zero this sprint. Confirmed live: the 40-employee payroll
+run's totals show `'lop': '0.00'`. Building attendance intake is out of
+scope for Sprint 6 (not named in doc 12 §5's Sprint 6 DoD).
+
+**`fpna.py`'s cashflow projection is a flat-rate estimate, not a real
+forecast model.** `project_weekly_flows` derives a constant weekly outflow
+from `finance.get_pnl`'s expense total divided by 4.33 and assumes zero
+inflow (deliberately conservative) — doc 06 §2.5 scopes FPnA's financial
+requirement analysis to feeding `finance.cashflow_model` a reasonable
+opening balance and burn rate, not building a full forecasting model; a
+real model is a plausible later-sprint upgrade, not a Sprint 6 DoD item.
+
+**`create_invoice`'s contract/billing-terms corpus doesn't exist.**
+`biller.build_invoice_lines` takes line items directly as input rather
+than deriving them from a contract document (no contract corpus has been
+built in any sprint so far) — matches the same "no data source built yet"
+pattern as attendance/LOP above.
+
+**Live end-to-end verification (real Docker stack, real Postgres, real
+MinIO, no mocks)**: dispatched a real `run_payroll` task for month
+`2026-07` over the Redis bus to the real `fin1` container. It processed
+all 40 real seeded employees, resolved comp via the `salary_bands` proxy,
+computed a full register via real `fincore` tax math
+(`gross=3,550,000.00`, `net=3,045,911.20`, `tds=424,088.80`,
+`pf=72,000.00`, `pt=8,000.00`, `esi=0.00`, `lop=0.00`), rendered all 40
+salary slip PDFs via `mcp-docs` and confirmed each is a genuine
+non-corrupt PDF (fetched one back from MinIO — `PDF document, version
+1.4, 1 page(s)`, not just a nonzero byte count), and requested a real
+`payroll_run` approval (`status=pending`, `approver_roles=[finance_head,
+director]`, `n_required=2` — matching `config/gates.yaml`) confirmed via
+a direct Postgres query. A separate `compute_tax` dispatch (regime
+comparison, no persisted output to read back) completed with no error.
+The approval-resume half of `run_payroll` (approving the gate, then
+confirming `generate_disbursement_file` + `post_journal` + `notify_user`
+fire on resume) was not live-dispatched this sprint — the resume
+mechanism itself (conditional entry routing off `scratch
+["awaiting_approval_for"]`) is structurally identical to the pattern
+already live-verified for ADM-1 in Sprint 4, not new code being proven
+for the first time.
+
+472 -> 527 tests passing (mcp-erp +1, mcp-docs +2, mcp-finance +3,
+`agents/fin1`: 41 new, `scripts/shadow_diff`: 4 new).

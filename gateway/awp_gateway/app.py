@@ -11,7 +11,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
 from awp_gateway.deps import GatewayState
-from awp_gateway.routers import approvals, chat, dashboard, dev_auth, tasks, tickets
+from awp_gateway.routers import approvals, chat, dashboard, dev_auth, payroll, tasks, tickets
 from awp_gateway.ws import router as ws_router
 
 _STATUS_MAP = {
@@ -42,6 +42,7 @@ def create_app(state: GatewayState) -> FastAPI:
     app.include_router(tasks.router)
     app.include_router(tickets.router)
     app.include_router(dashboard.router)
+    app.include_router(payroll.router)
     app.include_router(approvals.router)
     app.include_router(ws_router)
     return app

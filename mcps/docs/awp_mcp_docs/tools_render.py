@@ -33,8 +33,13 @@ _env = Environment(
 
 # doc 08 §3 lists 6 PDF templates; only the ones a landed agent actually
 # needs are built. Requesting an unbuilt one 404s with a clear message
-# rather than fabricating output — `issuance_form_v1` is ADM-1's (Sprint 4).
-_PDF_TEMPLATES = {"issuance_form_v1": "issuance_form_v1.html.j2"}
+# rather than fabricating output — `issuance_form_v1` is ADM-1's (Sprint 4),
+# `salary_slip_v1`/`invoice_gst_v1` are FIN-1's (Sprint 6).
+_PDF_TEMPLATES = {
+    "issuance_form_v1": "issuance_form_v1.html.j2",
+    "salary_slip_v1": "salary_slip_v1.html.j2",
+    "invoice_gst_v1": "invoice_gst_v1.html.j2",
+}
 
 # No docx template is needed by any agent landed so far (offer_letter_v1 is
 # HR-1's, a later sprint) — the tool itself is real and wired, the registry

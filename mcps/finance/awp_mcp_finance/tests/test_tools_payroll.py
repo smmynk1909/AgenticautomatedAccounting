@@ -79,6 +79,48 @@ async def test_compute_payroll_produces_register(finance_server: AwpMcpServer) -
     assert result["register"]["lines"][0]["net"] == "73164.00"
 
 
+async def test_get_payroll_run_returns_computed_register(finance_server: AwpMcpServer) -> None:
+    frozen = await finance_server.dispatch_raw(
+        "freeze_payroll_inputs",
+        {"month": "2026-06", "employees": _employees(), "attendance": _attendance()},
+        _headers(_token()),
+    )
+    await finance_server.dispatch_raw(
+        "compute_payroll",
+        {"snapshot_id": frozen["snapshot_id"], "fy": "2026-27"},
+        _headers(_token()),
+    )
+    result = await finance_server.dispatch_raw(
+        "get_payroll_run", {"month": "2026-06"}, _headers(_token())
+    )
+    assert result["status"] == "computed"
+    assert result["register"]["lines"][0]["emp_id"] == "EMP-1"
+
+
+async def test_get_payroll_run_before_compute_has_no_register(
+    finance_server: AwpMcpServer,
+) -> None:
+    await finance_server.dispatch_raw(
+        "freeze_payroll_inputs",
+        {"month": "2026-06", "employees": _employees(), "attendance": _attendance()},
+        _headers(_token()),
+    )
+    result = await finance_server.dispatch_raw(
+        "get_payroll_run", {"month": "2026-06"}, _headers(_token())
+    )
+    assert result["status"] == "frozen"
+    assert result["register"] is None
+
+
+async def test_get_payroll_run_unknown_month_404s(finance_server: AwpMcpServer) -> None:
+    from awp_shared.errors import NotFoundError
+
+    with pytest.raises(NotFoundError):
+        await finance_server.dispatch_raw(
+            "get_payroll_run", {"month": "2099-01"}, _headers(_token())
+        )
+
+
 async def test_compute_payroll_accumulates_tds_across_months(
     finance_server: AwpMcpServer,
 ) -> None:

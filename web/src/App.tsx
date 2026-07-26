@@ -4,15 +4,17 @@ import Approvals from "./pages/Approvals";
 import Chat from "./pages/Chat";
 import Dashboard from "./pages/Dashboard";
 import DevLogin from "./pages/DevLogin";
+import Payroll from "./pages/Payroll";
 import Tickets from "./pages/Tickets";
 
-type Tab = "chat" | "tickets" | "approvals" | "dashboard";
+type Tab = "chat" | "tickets" | "approvals" | "dashboard" | "payroll";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "chat", label: "Chat" },
   { id: "tickets", label: "Tickets" },
   { id: "approvals", label: "Approvals" },
   { id: "dashboard", label: "Dashboard" },
+  { id: "payroll", label: "Payroll" },
 ];
 
 export default function App() {
@@ -55,6 +57,7 @@ export default function App() {
         {tab === "tickets" && <Tickets />}
         {tab === "approvals" && <Approvals />}
         {tab === "dashboard" && <Dashboard />}
+        {tab === "payroll" && <Payroll />}
       </main>
     </div>
   );

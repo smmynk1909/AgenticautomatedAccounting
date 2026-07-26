@@ -165,6 +165,30 @@ def register_payroll_tools(server: AwpMcpServer, uow: UnitOfWork, redis: Redis) 
         return {"register_id": snapshot_id, "register": register_dict}
 
     @server.tool()
+    async def get_payroll_run(payload: dict[str, Any], ctx: Ctx) -> dict[str, Any]:
+        """Not in doc 08 §2's original tool list — added in Sprint 6 once
+        `generate_salary_slips` (reissue) and the payroll UI both turned
+        out to need a way to read back an already-computed register, and
+        neither doc 08 §2 nor doc 09 §1 had one. See this module's
+        docstring for the `snapshot_id == register_id` identity this
+        relies on."""
+        month = payload.get("month")
+        if not month:
+            raise ValidationError("get_payroll_run requires 'month'")
+
+        async with uow() as session:
+            run = await PayrollRunRepo(session).get_by_month(month)
+        if run is None:
+            raise NotFoundError(f"no payroll run for month: {month}")
+
+        return {
+            "register_id": run["id"],
+            "month": run["month"],
+            "status": run["status"],
+            "register": run["register"].get("computed"),
+        }
+
+    @server.tool()
     async def generate_disbursement_file(payload: dict[str, Any], ctx: Ctx) -> dict[str, Any]:
         register_id = payload.get("register_id")
         if not register_id:
