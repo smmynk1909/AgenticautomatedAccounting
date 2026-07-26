@@ -1,0 +1,5 @@
+# GST rates by supply category — doc 06 §2.3's "GST treatment (domestic vs
+# export/LUT)". `standard` is the default services rate (18%); `export` is
+# nominal since export-of-services-under-LUT is zero-rated.
+standard: 0.18
+export: 0.00

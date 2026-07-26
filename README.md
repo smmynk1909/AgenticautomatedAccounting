@@ -14,7 +14,7 @@ and the rest of `docs/00`–`12`. Deviations this build takes from those docs
 
 ## Status
 
-Sprints 1–4 complete and live-verified (`docs/12-SOLUTIONING-REPO.md` §5).
+Sprints 1–5 complete and live-verified (`docs/12-SOLUTIONING-REPO.md` §5).
 
 Sprints 1–2: shared library, DB schema + seed data, `mcp-audit`,
 `mcp-approvals`, `mcp-erp` (people/assets/tickets/tasks/dashboard/policies),
@@ -29,9 +29,7 @@ report deferred, see `DEVIATIONS.md`), `scheduler/` (cron dispatch + ORCH-0
 DAG reconcile sweep), a minimal `mcp-comms` (notify/reminder/incident
 outbox — no real email/Slack delivery yet, `DEVIATIONS.md` #10), gateway
 core (REST + poll-based WS, dev-login, ticket-category RBAC), and a minimal
-`web/` app (chat, tickets, approvals inbox). `HR-1`/`OPS-1`/`FIN-1`,
-`fincore`, and the remaining four MCP servers are scaffolded in the tree
-below but not yet implemented — see the sprint backlog in the doc.
+`web/` app (chat, tickets, approvals inbox).
 
 Verified live, not just unit-tested: `make bootstrap` brings up all 12
 containers (Postgres, Redis, MinIO, Ollama, 4 MCP servers, gateway, ORCH-0,
@@ -67,7 +65,38 @@ container-build-only bug (a duplicate wheel-archive entry in
 `mcps/docs/pyproject.toml`, `DEVIATIONS.md` #13) that no `uv sync`/`pytest`
 run on the dev host could have caught.
 
-371 tests passing (`uv run pytest -q`), ruff + mypy strict clean across
+Sprint 5: `fincore` (top-level, LLM-free — `payroll.py`/`tax.py`/`ledger.py`/
+`invoice.py`/`depreciation.py`/`reconcile.py`/`cashflow.py`, doc 06's prime
+directive "the LLM never computes money") and `mcp-finance` (the ~20 doc 08
+§2 tools wrapping it: post_journal/get_trial_balance/get_ledger/get_pnl/
+get_balance_sheet/close_period/reopen_period, payroll run/compute/
+disbursement, invoice compute/issue with gapless numbering, TDS projection/
+regime comparison/GST worksheet/advance-tax estimate, bank reconciliation,
+depreciation, 13-week cashflow — `DEVIATIONS.md` #16 for what's scoped
+down, including several tools that take source data as direct input rather
+than reaching into other services, matching the "no MCP server calls
+another MCP server" convention). `fincore`: 56 tests, **100% source
+coverage**, hypothesis property tests for the ledger balance invariant
+(1000 fuzzed examples), payroll LOP monotonicity, round-half-up rounding,
+and regime-comparison consistency. `HR-1`/`OPS-1`, `fincore`'s owning agent
+`FIN-1`, and the remaining three MCP servers are scaffolded in the tree
+below but not yet implemented — see the sprint backlog in the doc.
+
+Verified live: `mcp-finance` built and joined the running stack at zero
+restarts. This is the first sprint where the dev Postgres already had the
+affected migration (`0004_finance`) applied from Sprint 1 with the
+now-fixed-in-source `pg.UUID` columns — live-verified by actually posting
+a real journal entry through `mcp-finance.post_journal` against the real
+container, which surfaced two more real bugs no unit test could reach (a
+stale `UUID`-typed PL/pgSQL variable in the balance-check trigger function,
+and — caught by `test_compute_payroll_accumulates_tds_across_months` before
+it ever reached Docker — a wrong JSON field path that silently zeroed out
+month-over-month TDS accumulation). Both fixed; the live database was
+patched to match (`DEVIATIONS.md` #16), and a real post_journal call now
+both succeeds when balanced and is rejected by the same Postgres trigger
+when it isn't.
+
+472 tests passing (`uv run pytest -q`), ruff + mypy strict clean across
 every implemented package (`make test`).
 
 ## Prerequisites
@@ -108,9 +137,9 @@ Matches `docs/12-SOLUTIONING-REPO.md` §2. Top level:
 config/     intents/gates/scopes/routing/sla/models — schema-validated at boot
 shared/     awp_shared: schemas, auth, task bus, LLM client, MCP client, audit mw
 db/         Alembic migrations, DDL extras, synthetic seed generator
-mcps/       one FastMCP server per capability domain (_base + audit + approvals + erp + comms + docs so far)
+mcps/       one FastMCP server per capability domain (_base + audit + approvals + erp + comms + docs + finance so far)
 agents/     one LangGraph runtime per agent (_base + orch0 + sup1 + adm1 so far; HR-1/OPS-1/FIN-1 not yet implemented)
-fincore/    deterministic finance engine (not yet implemented)
+fincore/    deterministic finance engine — payroll/tax/ledger/invoice/depreciation/reconcile/cashflow
 gateway/    FastAPI + WebSocket API — chat/tasks/tickets/approvals, dev-login, RBAC
 web/        React frontend — chat, tickets, approvals inbox
 scheduler/  cron -> TaskEnvelope dispatch + ORCH-0 DAG reconcile sweep

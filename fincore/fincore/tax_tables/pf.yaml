@@ -1,0 +1,5 @@
+# EPF — employee contribution rate + wage ceiling (doc 06 §2.1 step 2:
+# "pf = min(basic,15000)*0.12"). Single current table, not FY-versioned
+# like it_slabs — see DEVIATIONS.md for why.
+employee_rate: 0.12
+wage_ceiling: 15000

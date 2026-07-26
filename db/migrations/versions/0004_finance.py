@@ -1,6 +1,14 @@
 """0004_finance — doc 09 §1-2 "Finance" tables + doc 11 §7 balance trigger and
 gapless invoice numbering.
 
+id/FK columns are `sa.String(36)`, not `pg.UUID` — see migration 0001's
+docstring / DEVIATIONS.md #11: `mcps/finance/awp_mcp_finance/tables.py`'s
+SQLAlchemy Core mirror uses generic `sa.String(36)` so the same table
+objects work against both sqlite (unit tests) and Postgres (prod);
+`gen_random_uuid()` still works fine as a server_default on a
+`sa.String(36)` column (Postgres casts it), already proven by migrations
+0003/0008.
+
 Revision ID: 0004_finance
 Revises: 0003_tickets_tasks
 Create Date: 2026-07-25
@@ -52,7 +60,7 @@ def upgrade() -> None:
         "journal_entries",
         sa.Column(
             "id",
-            pg.UUID(as_uuid=True),
+            sa.String(36),
             primary_key=True,
             server_default=sa.text("gen_random_uuid()"),
         ),
@@ -69,12 +77,12 @@ def upgrade() -> None:
         "journal_lines",
         sa.Column(
             "id",
-            pg.UUID(as_uuid=True),
+            sa.String(36),
             primary_key=True,
             server_default=sa.text("gen_random_uuid()"),
         ),
         sa.Column(
-            "entry_id", pg.UUID(as_uuid=True), sa.ForeignKey("journal_entries.id"), nullable=False
+            "entry_id", sa.String(36), sa.ForeignKey("journal_entries.id"), nullable=False
         ),
         sa.Column("account", sa.String(10), sa.ForeignKey("accounts.code"), nullable=False),
         sa.Column("dr", sa.Numeric(14, 2), nullable=False, server_default="0"),
@@ -91,7 +99,7 @@ def upgrade() -> None:
         """
         CREATE OR REPLACE FUNCTION check_journal_balance() RETURNS TRIGGER AS $$
         DECLARE
-            v_entry_id UUID;
+            v_entry_id VARCHAR(36);
             v_sum_dr NUMERIC(14,2);
             v_sum_cr NUMERIC(14,2);
         BEGIN
@@ -121,12 +129,12 @@ def upgrade() -> None:
         "payroll_runs",
         sa.Column(
             "id",
-            pg.UUID(as_uuid=True),
+            sa.String(36),
             primary_key=True,
             server_default=sa.text("gen_random_uuid()"),
         ),
         sa.Column("month", sa.String(7), nullable=False),  # "YYYY-MM"
-        sa.Column("snapshot_id", pg.UUID(as_uuid=True), nullable=False),
+        sa.Column("snapshot_id", sa.String(36), nullable=False),
         sa.Column("register", pg.JSONB(), nullable=False, server_default="{}"),
         sa.Column("status", sa.String(20), nullable=False, server_default="draft"),
         sa.Column("approvals", pg.JSONB(), nullable=False, server_default="{}"),
@@ -138,7 +146,7 @@ def upgrade() -> None:
         "invoices",
         sa.Column(
             "id",
-            pg.UUID(as_uuid=True),
+            sa.String(36),
             primary_key=True,
             server_default=sa.text("gen_random_uuid()"),
         ),
@@ -173,7 +181,7 @@ def upgrade() -> None:
         "expenses",
         sa.Column(
             "id",
-            pg.UUID(as_uuid=True),
+            sa.String(36),
             primary_key=True,
             server_default=sa.text("gen_random_uuid()"),
         ),
@@ -194,7 +202,7 @@ def upgrade() -> None:
         "bank_txns",
         sa.Column(
             "id",
-            pg.UUID(as_uuid=True),
+            sa.String(36),
             primary_key=True,
             server_default=sa.text("gen_random_uuid()"),
         ),
@@ -204,7 +212,7 @@ def upgrade() -> None:
         sa.Column("ref", sa.String(160), nullable=True),
         sa.Column(
             "matched_entry",
-            pg.UUID(as_uuid=True),
+            sa.String(36),
             sa.ForeignKey("journal_entries.id"),
             nullable=True,
         ),
@@ -216,7 +224,7 @@ def upgrade() -> None:
         "recurring_expenses",
         sa.Column(
             "id",
-            pg.UUID(as_uuid=True),
+            sa.String(36),
             primary_key=True,
             server_default=sa.text("gen_random_uuid()"),
         ),
@@ -236,7 +244,7 @@ def upgrade() -> None:
         # FinCore refuses to compute a period without a covering table version.
         sa.Column(
             "id",
-            pg.UUID(as_uuid=True),
+            sa.String(36),
             primary_key=True,
             server_default=sa.text("gen_random_uuid()"),
         ),

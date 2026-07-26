@@ -46,6 +46,13 @@ expense_posting:
   payload_model: null
   notes: "only fires when amount > INR 25000 or extraction confidence < 0.8 (doc 06 §2.2)"
 
+recon_confirm:
+  approver_roles: [finance_head]
+  n_required: 1
+  ttl_h: 24
+  payload_model: null
+  notes: "mcp-finance.confirm_matches; doc 06 §2.2 bank reconciliation, doc 08 §2"
+
 offer_communication:
   approver_roles: [hr_head]
   n_required: 1

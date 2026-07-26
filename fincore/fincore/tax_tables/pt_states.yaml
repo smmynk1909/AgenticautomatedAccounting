@@ -1,0 +1,12 @@
+# Professional Tax — state-wise monthly slabs. Only the states this
+# synthetic company's seeded employees actually use are covered; a state
+# with no entry here means "no PT deducted" (fincore.tax.pt_for_state
+# treats a missing state as zero rather than raising, since PT-exempt
+# states/UTs are a real, common case, not a data gap).
+KA:
+  - { income_from: 0, income_to: 15000, amount_per_month: 0 }
+  - { income_from: 15000, income_to: null, amount_per_month: 200 }
+MH:
+  - { income_from: 0, income_to: 7500, amount_per_month: 0 }
+  - { income_from: 7500, income_to: 10000, amount_per_month: 175 }
+  - { income_from: 10000, income_to: null, amount_per_month: 200 }

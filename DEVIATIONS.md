@@ -427,3 +427,112 @@ and runs `npm run test:e2e`; `playwright.config.ts` starts its own `vite
 dev` server, so this doesn't need `make up` first. If/when the real
 compose-up e2e tier gets built, this test stays as the fast UI-contract
 check underneath it, not a replacement for it.
+
+## 16. Sprint 5 — fincore + mcp-finance
+
+`fincore/` (top-level, doc 12 §2's tree — not under `mcps/`, no Postgres
+access, no LLM) implements payroll/tax/ledger/invoice/depreciation/
+reconciliation/cashflow as pure functions over frozen dataclasses
+(`fincore/fincore/models.py`), matching doc 06's prime directive ("the LLM
+never computes money"). `mcps/finance` wraps it as the ~20 doc 08 §2 tools
+against the real `accounts`/`journal_entries`/`journal_lines`/... tables
+from `db/migrations/versions/0004_finance.py`.
+
+**Found live, not by any test — a second real bug in migration 0004,
+distinct from the UUID/String(36) convention fix below**: `0004_finance`'s
+`check_journal_balance()` trigger function declared its `v_entry_id`
+local variable as `UUID`. Fixing `journal_lines.entry_id` from `pg.UUID`
+to `sa.String(36)` (see next paragraph) left that PL/pgSQL variable
+declaration stale — comparing a `varchar` column against a `uuid`-typed
+variable fails with `operator does not exist: character varying = uuid`
+**at COMMIT time** (the trigger is `DEFERRABLE INITIALLY DEFERRED`), which
+surfaces as a bare "Internal Server Error" with no structured `AwpError`
+envelope — the exception happens after `dispatch()`'s own try/except
+window, during the session commit. No sqlite-backed unit test could ever
+catch this (sqlite doesn't run Postgres trigger functions at all); only
+found by an actual `post_journal` call against the real Postgres container
+inside `docker compose up`. Fixed in the migration source
+(`v_entry_id VARCHAR(36)`) and applied to the already-migrated dev
+database by hand (`ALTER FUNCTION` + the column-type `ALTER TABLE`s below,
+inside one transaction with the two affected foreign keys dropped and
+re-added around them, since Postgres won't let an FK constraint span
+mismatched column types even transiently).
+
+**`db/migrations/versions/0004_finance.py`'s id/FK columns were still
+`pg.UUID`** (DEVIATIONS.md #11 already flagged this file specifically:
+"whoever builds that mirror should default to `sa.String(36)`... rather
+than rediscovering this the same way" — this is that rediscovery, now
+done). Fixed the same way as 0001/0002/0003/0006/0008: `sa.String(36)` in
+both the migration and `mcps/finance/awp_mcp_finance/tables.py`'s Core
+mirror. Unlike those earlier fixes (which only ever needed to apply to a
+*fresh* migration run, since nothing had used those tables yet), this dev
+Postgres already had 0004 applied with the old types from Sprint 1 — a
+full `alembic downgrade`+`upgrade` cycle would have cascaded through
+0005-0010 and dropped tables three other running containers actively use
+(`agent_checkpoints`, `dashboard_items`, `comms_outbox`, ...), so the live
+database was patched surgically instead (`ALTER TABLE ... ALTER COLUMN ...
+TYPE varchar(36) USING ...::text`, scoped to only the finance tables) —
+verified afterward with a real `post_journal` call that both posts
+successfully *and* still gets rejected when unbalanced (the whole point of
+the trigger).
+
+**mcp-finance calls no other MCP server** (same architectural convention
+observed everywhere else in this build — only agents/gateway call MCP
+servers, never server-to-server). This shapes several tools:
+- `freeze_payroll_inputs`/`run_depreciation`/`reconcile_bank`/
+  `cashflow_model` all take their source data (employee comp/attendance,
+  asset register, bank statement lines, AR/AP/payroll projections) as
+  direct tool input rather than fetching it from `mcp-erp`/`mcp-docs`
+  themselves — gathering that data across services is FIN-1's job
+  (Sprint 6), not built yet.
+- `generate_disbursement_file` returns its CSV content as base64 directly
+  instead of a MinIO URI — vaulting it via `mcp-docs.store_file` is the
+  calling agent's job.
+- Doc 11 §6.1's payroll sequence names two different ids
+  (`freeze_payroll_inputs` -> `snapshot_id`, `compute_payroll` ->
+  `register_id`), implying a separate snapshot store, but doc 09 §1's
+  actual schema has only one finance table for this (`payroll_runs`, no
+  `payroll_snapshots`). `snapshot_id` and `register_id` are the same
+  identifier (one `payroll_runs` row's `id`) at two lifecycle stages, not
+  two different rows — see `tools_payroll.py`'s docstring.
+
+**Found by a real test, not review**: `PayrollRunRepo.
+tds_deducted_so_far_by_emp` read `register["lines"]`, but the stored JSON
+shape is `{"snapshot": {...}, "computed": {"lines": [...]}}` — the lines
+are nested under `"computed"`, not top-level. This meant every month's
+payroll computation saw "zero TDS deducted so far" regardless of prior
+months, silently breaking the "spread the *remaining* annual liability
+over the *remaining* months" logic doc 06 §2.1 step 2 describes (every
+month would have recomputed as if it were the first). Caught by
+`test_tools_payroll.py::test_compute_payroll_accumulates_tds_across_months`,
+which asserts May's and June's TDS deduction differ correctly once May's
+is accounted for — it initially failed with June computing the same
+figure as if May had never run. Fixed the field path.
+
+**Other scope reductions, each documented at the point they're made**:
+`gst_worksheet`/`advance_tax_estimate` (`tools_tax.py`) produce an
+account-level liability/credit summary and a flat-rate estimate, not a
+filing-ready return or a real FPnA-forecast-driven figure — doc 06 §2.4
+itself scopes tax output to "worksheets... reviewed by the company's human
+accountant," and the real cashflow-forecast input doesn't exist until
+FPnA does (later sprint). `fincore/tables.py` treats PF/ESI/PT/GST/TDS
+tables as single current versions (not date-ranged like `it_slabs_*.yaml`)
+even though doc 09's `tax_tables` schema models every `kind` as
+independently versioned — a scope reduction, not a bug, since IT slabs are
+what genuinely changes and matters most for correctness.
+
+Two DB-backed repo classes were written and then deleted before landing
+(`ExpenseRepo`, `RecurringExpenseRepo`) — built to match `db/migrations/
+versions/0004_finance.py`'s `expenses`/`recurring_expenses` tables, but no
+doc 08 §2 tool actually exposes expense-intake or recurring-expense
+lookups yet (that's FIN-1 Bookkeeper's job, Sprint 6); the tables stay in
+`tables.py` (mirroring the real schema is still correct), but the
+speculative repo code for them didn't ship.
+
+Added the `recon_confirm` gate to `config/gates.yaml` — doc 08 §2 names it
+on `confirm_matches` ("🔒recon_confirm (human)") but it was never actually
+registered in Sprint 1's gate table.
+
+371 -> 472 tests passing (fincore: 56, 100% source coverage; mcp-finance:
+45, ~92%). `fincore`'s coverage figure is the one doc 12 §5's Sprint 5 DoD
+("property/golden 95% cov; ledger fuzz invariant") names directly.

@@ -10,7 +10,7 @@ COMPOSE = docker compose -f deploy/docker-compose.dev.yml --env-file .env
 
 dev: up models migrate seed  ## full local bring-up
 
-up:  ## start infra + MCP servers + gateway + agents (mcp-audit/approvals/erp/comms, gateway, orch0, sup1, scheduler)
+up:  ## start infra + MCP servers + gateway + agents (mcp-audit/approvals/erp/comms/docs/finance, gateway, orch0, sup1, adm1, scheduler)
 	$(COMPOSE) up -d
 
 down:  ## stop and remove containers (keeps volumes)
@@ -28,8 +28,8 @@ seed:  ## generate + load synthetic company data
 test:  ## lint + typecheck + unit + contract tests
 	uv run ruff check .
 	uv run mypy -p awp_shared -p awp_mcp_base -p awp_mcp_audit -p awp_mcp_approvals -p awp_mcp_erp \
-		-p awp_mcp_comms -p awp_mcp_docs -p awp_agent_base -p awp_agent_orch0 -p awp_agent_sup1 \
-		-p awp_agent_adm1 -p awp_scheduler -p awp_gateway
+		-p awp_mcp_comms -p awp_mcp_docs -p awp_mcp_finance -p awp_agent_base -p awp_agent_orch0 \
+		-p awp_agent_sup1 -p awp_agent_adm1 -p awp_scheduler -p awp_gateway -p fincore
 	uv run pytest -q
 
 web:  ## install + run the web app dev server (needs `make up`)

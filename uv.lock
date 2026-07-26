@@ -9,6 +9,7 @@ members = [
     "awp-agent-orch0",
     "awp-agent-sup1",
     "awp-db",
+    "awp-fincore",
     "awp-gateway",
     "awp-mcp-approvals",
     "awp-mcp-audit",
@@ -16,6 +17,7 @@ members = [
     "awp-mcp-comms",
     "awp-mcp-docs",
     "awp-mcp-erp",
+    "awp-mcp-finance",
     "awp-scheduler",
     "awp-shared",
     "awp-workspace",
@@ -356,6 +358,29 @@ dev = [
 ]
 
 [[package]]
+name = "awp-fincore"
+version = "0.1.0"
+source = { editable = "fincore" }
+dependencies = [
+    { name = "pyyaml" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "hypothesis" },
+    { name = "pytest" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "pyyaml", specifier = ">=6.0" }]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "hypothesis", specifier = ">=6.100" },
+    { name = "pytest", specifier = ">=8.0" },
+]
+
+[[package]]
 name = "awp-gateway"
 version = "0.1.0"
 source = { editable = "gateway" }
@@ -665,6 +690,47 @@ dev = [
 ]
 
 [[package]]
+name = "awp-mcp-finance"
+version = "0.1.0"
+source = { editable = "mcps/finance" }
+dependencies = [
+    { name = "awp-fincore" },
+    { name = "awp-mcp-base" },
+    { name = "awp-shared" },
+    { name = "fastapi" },
+    { name = "redis" },
+    { name = "sqlalchemy", extra = ["asyncio"] },
+    { name = "uvicorn", extra = ["standard"] },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "aiosqlite" },
+    { name = "fakeredis" },
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "awp-fincore", editable = "fincore" },
+    { name = "awp-mcp-base", editable = "mcps/_base" },
+    { name = "awp-shared", editable = "shared" },
+    { name = "fastapi", specifier = ">=0.115" },
+    { name = "redis", specifier = ">=5.0" },
+    { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.32" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "aiosqlite", specifier = ">=0.20" },
+    { name = "fakeredis", specifier = ">=2.21" },
+    { name = "pytest", specifier = ">=8.0" },
+    { name = "pytest-asyncio", specifier = ">=0.24" },
+]
+
+[[package]]
 name = "awp-scheduler"
 version = "0.1.0"
 source = { editable = "scheduler" }
@@ -757,6 +823,7 @@ dependencies = [
     { name = "awp-agent-orch0" },
     { name = "awp-agent-sup1" },
     { name = "awp-db" },
+    { name = "awp-fincore" },
     { name = "awp-gateway" },
     { name = "awp-mcp-approvals" },
     { name = "awp-mcp-audit" },
@@ -764,6 +831,7 @@ dependencies = [
     { name = "awp-mcp-comms" },
     { name = "awp-mcp-docs" },
     { name = "awp-mcp-erp" },
+    { name = "awp-mcp-finance" },
     { name = "awp-scheduler" },
     { name = "awp-shared" },
 ]
@@ -771,6 +839,7 @@ dependencies = [
 [package.dev-dependencies]
 dev = [
     { name = "fakeredis" },
+    { name = "hypothesis" },
     { name = "mypy" },
     { name = "pre-commit" },
     { name = "psycopg2-binary" },
@@ -788,6 +857,7 @@ requires-dist = [
     { name = "awp-agent-orch0", editable = "agents/orch0" },
     { name = "awp-agent-sup1", editable = "agents/sup1" },
     { name = "awp-db", virtual = "db" },
+    { name = "awp-fincore", editable = "fincore" },
     { name = "awp-gateway", editable = "gateway" },
     { name = "awp-mcp-approvals", editable = "mcps/approvals" },
     { name = "awp-mcp-audit", editable = "mcps/audit" },
@@ -795,6 +865,7 @@ requires-dist = [
     { name = "awp-mcp-comms", editable = "mcps/comms" },
     { name = "awp-mcp-docs", editable = "mcps/docs" },
     { name = "awp-mcp-erp", editable = "mcps/erp" },
+    { name = "awp-mcp-finance", editable = "mcps/finance" },
     { name = "awp-scheduler", editable = "scheduler" },
     { name = "awp-shared", editable = "shared" },
 ]
@@ -802,6 +873,7 @@ requires-dist = [
 [package.metadata.requires-dev]
 dev = [
     { name = "fakeredis", specifier = ">=2.21" },
+    { name = "hypothesis", specifier = ">=6.100" },
     { name = "mypy", specifier = ">=1.14" },
     { name = "pre-commit", specifier = ">=4.0" },
     { name = "psycopg2-binary", specifier = ">=2.9" },
@@ -1142,6 +1214,37 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/b1/df/48c586a5fe32a0f01324ee087459e112ebb7224f646c0b5023f5e79e9956/httpx-0.28.1.tar.gz", hash = "sha256:75e98c5f16b0f35b567856f597f06ff2270a374470a5c2392242528e3e3e42fc", size = 141406, upload-time = "2024-12-06T15:37:23.222Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/2a/39/e50c7c3a983047577ee07d2a9e53faf5a69493943ec3f6a384bdc792deb2/httpx-0.28.1-py3-none-any.whl", hash = "sha256:d909fcccc110f8c7faf814ca82a9a4d816bc5a6dbfea25d6591d6985b8ba59ad", size = 73517, upload-time = "2024-12-06T15:37:21.509Z" },
+]
+
+[[package]]
+name = "hypothesis"
+version = "6.161.5"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "sortedcontainers" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/17/94/d208ced653376e7e0a2f0429ee5be864dd0b59393b98a8b41a35ceb4d035/hypothesis-6.161.5.tar.gz", hash = "sha256:ba73a3c3b68e63a0bee5ea1a8a13efce60bcc7ee5fc7e71df2954db39c225b95", size = 486653, upload-time = "2026-07-25T14:39:34.866Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/34/58/e48aa878d119474631fc097d511b5e70807dfe56be4b244cce0275f1805e/hypothesis-6.161.5-cp310-abi3-macosx_10_12_x86_64.whl", hash = "sha256:4c89e0c35d7cd70af2a0a5f0b5ad69d1898c369adf15115c6d4271d47bf1b280", size = 766970, upload-time = "2026-07-25T14:38:42.613Z" },
+    { url = "https://files.pythonhosted.org/packages/9c/ff/c83c1a4d5d3c4b6a4dc1fcb5069245171b7a30ad5dd31f44282e8881e089/hypothesis-6.161.5-cp310-abi3-macosx_11_0_arm64.whl", hash = "sha256:1bb987e519a6d00675bab124c925000637e2e59384196b0ded5d108dc1851449", size = 762574, upload-time = "2026-07-25T14:38:15.427Z" },
+    { url = "https://files.pythonhosted.org/packages/d2/04/7a5ba16cd14340009d1d8aa46083bf3a3a55c5b0d1ccf553e6f6748ee0e8/hypothesis-6.161.5-cp310-abi3-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:5990e9e2e145ff5369c95ad684bd6eee7ebd2d4de37d37eea4c6ca5e339e2a52", size = 1091754, upload-time = "2026-07-25T14:38:38.562Z" },
+    { url = "https://files.pythonhosted.org/packages/70/69/031913f7408ebb41e31a9b20e5bca75c5a64ab151d57ca75e944a09ba6e0/hypothesis-6.161.5-cp310-abi3-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:2a5c6400c58c9c3d616ad7177ada12ae577e5103b3b0df6e79920729250bf100", size = 1120372, upload-time = "2026-07-25T14:38:18.962Z" },
+    { url = "https://files.pythonhosted.org/packages/b9/95/360884e86ab99099340fca781531286c26d40ce32c853097e76537cc0726/hypothesis-6.161.5-cp310-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:71aa718e08bdfbacd1a5d8f86ffd55f1d86e64a57cec6a107144d883b522823e", size = 1141230, upload-time = "2026-07-25T14:39:03.757Z" },
+    { url = "https://files.pythonhosted.org/packages/bc/5b/6f3c9fbe9191432f33c9aaf951cf5a5416533848999f2e2c6a20ec00098b/hypothesis-6.161.5-cp310-abi3-manylinux_2_31_riscv64.whl", hash = "sha256:66912038467e1af791f76336bc079d669f7c8bbf7aeb85bdd52e83259d885122", size = 1096611, upload-time = "2026-07-25T14:38:34.688Z" },
+    { url = "https://files.pythonhosted.org/packages/32/c7/d126b9f66295fed5d5745f98ad92f485c98dee303dd67ea7a53fe4a903aa/hypothesis-6.161.5-cp310-abi3-manylinux_2_5_i686.manylinux1_i686.whl", hash = "sha256:99d8b2380d0bba602df963d6e42d56bb50cf1734376c1b9b14dcab3cec21814e", size = 1133382, upload-time = "2026-07-25T14:38:20.27Z" },
+    { url = "https://files.pythonhosted.org/packages/56/de/277a17091687f298079c197cadd806d64908c5a08c9c91bb27b834192503/hypothesis-6.161.5-cp310-abi3-musllinux_1_2_aarch64.whl", hash = "sha256:19e57e621c6abd98123a91bd4b022bde7760ba709f1ca121f822d9aa291bd001", size = 1265592, upload-time = "2026-07-25T14:38:11.734Z" },
+    { url = "https://files.pythonhosted.org/packages/d7/e5/3f15b1a43cb70b223427ce3a9a6afbe430bf1754b3346ac546a3df38b96b/hypothesis-6.161.5-cp310-abi3-musllinux_1_2_armv7l.whl", hash = "sha256:3b74cced62995ed2e0096fa63d0b7babd1fa08ce1944cff41134275516848708", size = 1393424, upload-time = "2026-07-25T14:38:46.738Z" },
+    { url = "https://files.pythonhosted.org/packages/1a/1d/a3cf1441550dbf5a362dcfa19c831721f3bb6a749eb53ecbdfc983959027/hypothesis-6.161.5-cp310-abi3-musllinux_1_2_riscv64.whl", hash = "sha256:fd37a0257647288be8c27d56a78a31da2b65e3b6254511f03164f5e1c786187a", size = 1266197, upload-time = "2026-07-25T14:39:33.052Z" },
+    { url = "https://files.pythonhosted.org/packages/57/e5/2616432d6144057b6c8f4409c95d95610bdbdf07fecb6618e98761861c24/hypothesis-6.161.5-cp310-abi3-musllinux_1_2_x86_64.whl", hash = "sha256:cf9dfba054164e481f05774c70b65ea88ba735b986cdc44f5210ef40871a32e9", size = 1308330, upload-time = "2026-07-25T14:39:27.86Z" },
+    { url = "https://files.pythonhosted.org/packages/f7/cd/9e9c7a88858f84447e44e45c8b9fd1058120b4d5fa9bab9c3ceb9b9cf96b/hypothesis-6.161.5-cp310-abi3-win32.whl", hash = "sha256:8763938787e6c98e461f8c11139981597d083e6915a9956db1c26cc609bc7b19", size = 652819, upload-time = "2026-07-25T14:38:35.915Z" },
+    { url = "https://files.pythonhosted.org/packages/03/23/aae37b5bb2014e0e01e372498f7f5977b9fd61a0179143854b7fb0538b1c/hypothesis-6.161.5-cp310-abi3-win_amd64.whl", hash = "sha256:79b5d069095a726dca5b6b7e4c5d268acc809a6595c46d7eee860708f960cb8f", size = 658970, upload-time = "2026-07-25T14:39:05.239Z" },
+    { url = "https://files.pythonhosted.org/packages/bf/37/71a53545f2732574bdd7a45a6e073043bce3447fec4aa722211ebf742f2e/hypothesis-6.161.5-cp312-cp312-macosx_10_12_x86_64.whl", hash = "sha256:37016b6b4842993b06ee453dda4dedac5ef328cefa6daa36372d261abf12db43", size = 768565, upload-time = "2026-07-25T14:38:14.362Z" },
+    { url = "https://files.pythonhosted.org/packages/e6/56/7f32ba1443d5819b324444e7d5ebcf207ba4a0f9219a1693a7994293fd3f/hypothesis-6.161.5-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:d60a204b86936b29d8914f93a99c59a2ecd4e311be793bf32a3f94774d41e016", size = 760188, upload-time = "2026-07-25T14:38:07.894Z" },
+    { url = "https://files.pythonhosted.org/packages/07/0d/699436929d2980103c9ddba153872ebed55cfcc13f0f78c1741ac6128205/hypothesis-6.161.5-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:cee9f1a563830a9137b9d1505c9c4fac760bc43dfbfa5873bebefe36c8dca4ec", size = 1090570, upload-time = "2026-07-25T14:39:00.492Z" },
+    { url = "https://files.pythonhosted.org/packages/8a/a5/2c28b58d16443fd8ad63e4f287440291a42135073748e5e511084f32a6f3/hypothesis-6.161.5-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:d7fcf44f9876b7b4fdc40b607342219c634cf6a1acc708dc0ff88e8e48ae8ea2", size = 1140601, upload-time = "2026-07-25T14:39:21.403Z" },
+    { url = "https://files.pythonhosted.org/packages/4e/fe/f0f87c38dc741687bace80553478f8c9796ba5b6e68793a80990d79ec5ac/hypothesis-6.161.5-cp312-cp312-musllinux_1_2_aarch64.whl", hash = "sha256:59088f6458d2a6ef04724a2a639418c97dd8b8c280bfd222fcc5566854560caf", size = 1263341, upload-time = "2026-07-25T14:38:41.257Z" },
+    { url = "https://files.pythonhosted.org/packages/44/db/02e30bcdb3434f4eee8fdbebf5cf151fecd37d2a76f2fc19f2745c93ca38/hypothesis-6.161.5-cp312-cp312-musllinux_1_2_x86_64.whl", hash = "sha256:ea8e7e6bed5407ab902026d8cac74d10cac894a496d82e261a0beaca499114dc", size = 1307604, upload-time = "2026-07-25T14:39:19.867Z" },
+    { url = "https://files.pythonhosted.org/packages/1d/70/1f6349a244f13c5a383a62ca674d3175018c7fc30fbaad10faa859d5c2cf/hypothesis-6.161.5-cp312-cp312-win_amd64.whl", hash = "sha256:a4ad11f4eafd561a672cb9fa977d0f58ab4ae9cf4b160dd3c12c351089f3e2be", size = 656103, upload-time = "2026-07-25T14:38:57.639Z" },
 ]
 
 [[package]]

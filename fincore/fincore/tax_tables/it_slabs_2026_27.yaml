@@ -1,0 +1,22 @@
+# Income-tax slabs, FY 2026-27 (doc 06 §6: "versioned YAML in the repo,
+# loaded to DB with effective-date ranges; updates via PR reviewed by CA").
+# Figures are illustrative for this build, not a substitute for the actual
+# Finance Act — a real deployment replaces this file under the same review
+# process doc 06 §6 describes, FinCore's contract (refuse an uncovered
+# period) doesn't change either way.
+version: "2026-27"
+effective_from: "2026-04-01"
+effective_to: "2027-03-31"
+regimes:
+  old:
+    - { income_from: 0, income_to: 250000, rate: 0.00 }
+    - { income_from: 250000, income_to: 500000, rate: 0.05 }
+    - { income_from: 500000, income_to: 1000000, rate: 0.20 }
+    - { income_from: 1000000, income_to: null, rate: 0.30 }
+  new:
+    - { income_from: 0, income_to: 300000, rate: 0.00 }
+    - { income_from: 300000, income_to: 600000, rate: 0.05 }
+    - { income_from: 600000, income_to: 900000, rate: 0.10 }
+    - { income_from: 900000, income_to: 1200000, rate: 0.15 }
+    - { income_from: 1200000, income_to: 1500000, rate: 0.20 }
+    - { income_from: 1500000, income_to: null, rate: 0.30 }

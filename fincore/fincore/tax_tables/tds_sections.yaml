@@ -1,0 +1,5 @@
+# TDS sections for vendor/contractor payments (doc 06 §2.4). Section 192
+# (salary) isn't here — salary TDS is computed via the IT slabs, not a flat
+# section rate.
+"194C": 0.01
+"194J": 0.10

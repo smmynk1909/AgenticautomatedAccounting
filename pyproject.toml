@@ -3,6 +3,7 @@ name = "awp-workspace"
 version = "0.1.0"
 requires-python = ">=3.12,<3.13"
 dependencies = [
+  "awp-fincore",
   "awp-shared",
   "awp-mcp-base",
   "awp-db",
@@ -10,6 +11,7 @@ dependencies = [
   "awp-mcp-approvals",
   "awp-mcp-erp",
   "awp-mcp-comms",
+  "awp-mcp-finance",
   "awp-agent-base",
   "awp-agent-orch0",
   "awp-agent-sup1",
@@ -35,14 +37,15 @@ dev = [
   # skipped pre-Docker, so this gap went uncaught until now).
   "psycopg2-binary>=2.9",
   "pre-commit>=4.0",
+  "hypothesis>=6.100",
 ]
 
 [tool.uv.workspace]
-# Sprint 1-2 members + agents/*, scheduler, gateway (Sprint 3 on). `fincore`
-# joins once its sprint lands (docs/12-SOLUTIONING-REPO.md §5).
-members = ["shared", "db", "mcps/*", "agents/*", "scheduler", "gateway"]
+# Sprint 1-2 members + agents/*, scheduler, gateway (Sprint 3), fincore (Sprint 5).
+members = ["shared", "db", "fincore", "mcps/*", "agents/*", "scheduler", "gateway"]
 
 [tool.uv.sources]
+awp-fincore = { workspace = true }
 awp-shared = { workspace = true }
 awp-mcp-base = { workspace = true }
 awp-db = { workspace = true }
@@ -50,6 +53,7 @@ awp-mcp-audit = { workspace = true }
 awp-mcp-approvals = { workspace = true }
 awp-mcp-erp = { workspace = true }
 awp-mcp-comms = { workspace = true }
+awp-mcp-finance = { workspace = true }
 awp-agent-orch0 = { workspace = true }
 awp-agent-sup1 = { workspace = true }
 awp-agent-adm1 = { workspace = true }
@@ -82,7 +86,7 @@ warn_unused_ignores = true
 # once. Passing file paths instead causes mypy to also treat them as CLI
 # targets alongside the import-resolved copy, i.e. "Source file found twice
 # under different module names".
-mypy_path = "shared:mcps/_base:mcps/audit:mcps/approvals:mcps/erp:mcps/comms:mcps/docs:agents/_base:agents/orch0:agents/sup1:agents/adm1:scheduler:gateway"
+mypy_path = "fincore:shared:mcps/_base:mcps/audit:mcps/approvals:mcps/erp:mcps/comms:mcps/docs:mcps/finance:agents/_base:agents/orch0:agents/sup1:agents/adm1:scheduler:gateway"
 
 [[tool.mypy.overrides]]
 # Third-party packages that ship no/partial stubs; tighten as coverage improves.
@@ -120,10 +124,11 @@ module = [
   "awp_agent_sup1.tests.*",
   "awp_mcp_docs.tests.*",
   "awp_agent_adm1.tests.*",
+  "awp_mcp_finance.tests.*",
 ]
 disallow_any_generics = false
 disallow_untyped_defs = false
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
-testpaths = ["shared", "mcps", "db", "agents", "scheduler", "gateway"]
+testpaths = ["shared", "mcps", "db", "agents", "scheduler", "gateway", "fincore"]

@@ -1,0 +1,3 @@
+# ESI — applies only when gross monthly wages <= gross_threshold.
+gross_threshold: 21000
+employee_rate: 0.0075
