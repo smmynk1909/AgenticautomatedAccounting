@@ -12,6 +12,7 @@ members = [
     "awp-agent-orch0",
     "awp-agent-sup1",
     "awp-db",
+    "awp-evals",
     "awp-fincore",
     "awp-gateway",
     "awp-mcp-approvals",
@@ -462,6 +463,35 @@ dev = [
     { name = "pytest", specifier = ">=8.0" },
     { name = "pytest-asyncio", specifier = ">=0.24" },
     { name = "testcontainers", extras = ["postgres"], specifier = ">=4.9" },
+]
+
+[[package]]
+name = "awp-evals"
+version = "0.1.0"
+source = { editable = "evals" }
+dependencies = [
+    { name = "awp-shared" },
+    { name = "pyyaml" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "fakeredis" },
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "awp-shared", editable = "shared" },
+    { name = "pyyaml", specifier = ">=6.0" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "fakeredis", specifier = ">=2.21" },
+    { name = "pytest", specifier = ">=8.0" },
+    { name = "pytest-asyncio", specifier = ">=0.24" },
 ]
 
 [[package]]
@@ -1062,6 +1092,7 @@ dependencies = [
     { name = "awp-agent-orch0" },
     { name = "awp-agent-sup1" },
     { name = "awp-db" },
+    { name = "awp-evals" },
     { name = "awp-fincore" },
     { name = "awp-gateway" },
     { name = "awp-mcp-approvals" },
@@ -1102,6 +1133,7 @@ requires-dist = [
     { name = "awp-agent-orch0", editable = "agents/orch0" },
     { name = "awp-agent-sup1", editable = "agents/sup1" },
     { name = "awp-db", virtual = "db" },
+    { name = "awp-evals", editable = "evals" },
     { name = "awp-fincore", editable = "fincore" },
     { name = "awp-gateway", editable = "gateway" },
     { name = "awp-mcp-approvals", editable = "mcps/approvals" },

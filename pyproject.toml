@@ -25,6 +25,7 @@ dependencies = [
   "awp-mcp-hrsourcing",
   "awp-mcp-projects",
   "awp-agent-ops1",
+  "awp-evals",
 ]
 
 [dependency-groups]
@@ -47,8 +48,9 @@ dev = [
 ]
 
 [tool.uv.workspace]
-# Sprint 1-2 members + agents/*, scheduler, gateway (Sprint 3), fincore (Sprint 5).
-members = ["shared", "db", "fincore", "mcps/*", "agents/*", "scheduler", "gateway"]
+# Sprint 1-2 members + agents/*, scheduler, gateway (Sprint 3), fincore
+# (Sprint 5), evals (Sprint 11 — DEVIATIONS.md #23).
+members = ["shared", "db", "fincore", "mcps/*", "agents/*", "scheduler", "gateway", "evals"]
 
 [tool.uv.sources]
 awp-fincore = { workspace = true }
@@ -73,6 +75,7 @@ awp-mcp-hrsourcing = { workspace = true }
 awp-agent-hr1 = { workspace = true }
 awp-mcp-projects = { workspace = true }
 awp-agent-ops1 = { workspace = true }
+awp-evals = { workspace = true }
 
 [tool.ruff]
 line-length = 100
@@ -98,7 +101,7 @@ warn_unused_ignores = true
 # once. Passing file paths instead causes mypy to also treat them as CLI
 # targets alongside the import-resolved copy, i.e. "Source file found twice
 # under different module names".
-mypy_path = "fincore:shared:mcps/_base:mcps/audit:mcps/approvals:mcps/erp:mcps/comms:mcps/docs:mcps/finance:mcps/search:mcps/hrsourcing:mcps/projects:agents/_base:agents/orch0:agents/sup1:agents/adm1:agents/fin1:agents/hr1:agents/ops1:scheduler:gateway"
+mypy_path = "fincore:shared:mcps/_base:mcps/audit:mcps/approvals:mcps/erp:mcps/comms:mcps/docs:mcps/finance:mcps/search:mcps/hrsourcing:mcps/projects:agents/_base:agents/orch0:agents/sup1:agents/adm1:agents/fin1:agents/hr1:agents/ops1:scheduler:gateway:evals"
 
 [[tool.mypy.overrides]]
 # Third-party packages that ship no/partial stubs; tighten as coverage improves.
@@ -144,10 +147,11 @@ module = [
   "awp_agent_hr1.tests.*",
   "awp_mcp_projects.tests.*",
   "awp_agent_ops1.tests.*",
+  "awp_evals.tests.*",
 ]
 disallow_any_generics = false
 disallow_untyped_defs = false
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
-testpaths = ["shared", "mcps", "db", "agents", "scheduler", "gateway", "fincore", "scripts"]
+testpaths = ["shared", "mcps", "db", "agents", "scheduler", "gateway", "fincore", "scripts", "evals"]

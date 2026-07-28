@@ -1,0 +1,19 @@
+[project]
+name = "awp-evals"
+version = "0.1.0"
+description = "Eval harness + red-team corpus (doc 09 §6-7, §4.4)."
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "awp-shared",
+  "pyyaml>=6.0",
+]
+
+[dependency-groups]
+dev = ["pytest>=8.0", "pytest-asyncio>=0.24", "fakeredis>=2.21"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["awp_evals"]

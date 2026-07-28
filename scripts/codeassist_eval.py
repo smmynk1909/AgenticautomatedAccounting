@@ -96,12 +96,37 @@ PROBLEMS = [
     ),
 ]
 
-_CODE_FENCE_RE = re.compile(r"```(?:python)?\n(.*?)```", re.DOTALL)
+_CODE_FENCE_RE = re.compile(r"```(\w*)\n(.*?)```", re.DOTALL)
 
 
 def _extract_code(text: str) -> str:
+    """`codeassist.py`'s "generate" mode system prompt tells the model to
+    output a "patch/diff-style code block" — real CodeAssist output, so
+    engineers get something diff-shaped to apply. Live-verified (Sprint 10):
+    under RAG context the model follows that instruction literally and
+    fences the answer as ```diff with unified-diff `+`/`---`/`@@` markup,
+    reproducibly (3/3 samples) — `exec()`-ing that raw is a syntax error
+    even though the underlying suggested code is correct. Without RAG the
+    model happened not to lean on the diff-style instruction, emitting
+    plain ```python — so grading only diff output would have wrongly
+    scored a real capability as a regression. Strip diff markup down to the
+    added-line content so both fence styles grade the same code.
+    """
     m = _CODE_FENCE_RE.search(text)
-    return m.group(1) if m else text
+    if not m:
+        return text
+    lang, body = m.group(1), m.group(2)
+    if lang != "diff":
+        return body
+    lines = []
+    for line in body.splitlines():
+        if line.startswith(("---", "+++", "@@")):
+            continue
+        if line.startswith("+"):
+            lines.append(line[1:])
+        elif not line.startswith("-"):
+            lines.append(line)
+    return "\n".join(lines)
 
 
 def _grade(name: str, code: str, cases: list[tuple[tuple[Any, ...], Any]]) -> bool:

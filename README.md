@@ -244,17 +244,20 @@ decoding is visibly more expensive on this host's CPU-only Ollama), but
 returned a correct `CodeReview` flagging the hardcoded credential by
 category without the raw key ever appearing in the response, proving the
 secrets-scan-before-model-call ordering held for real. This surfaced and
-fixed two real bugs — a Qdrant collection-naming bug and an M-CODE
-cold-load timeout issue, both in `DEVIATIONS.md` #21 — and one new
-deviation (Docker Desktop's port-forwarding intermittently drops
-long-held HTTP connections to the new IDE endpoint on this host,
-`DEVIATIONS.md` #21).
+fixed three real bugs — a Qdrant collection-naming bug, an M-CODE
+cold-load timeout issue, and (in the doc 05 §5.3,5 HumanEval-lite pass@1
+eval harness itself) a false-negative grader that couldn't parse the
+model's own legitimate diff-formatted output, all in `DEVIATIONS.md` #21 —
+and one new deviation (Docker Desktop's port-forwarding intermittently
+drops long-held HTTP connections to the new IDE endpoint on this host,
+`DEVIATIONS.md` #21). The pass@1 eval itself now passes for real: baseline
+5/5 (1.00), RAG 5/5 (1.00) against the ≥0.6 bar with no RAG degradation.
 
 711 tests passing, ruff + mypy strict clean across every implemented
 package.
 
 Sprint 11 (in progress — doc 12 §5's hardening sprint spans roughly seven
-independent sub-builds; only the first is done so far): Keycloak swap-in
+independent sub-builds; two are done so far): Keycloak swap-in
 for human auth. `deploy/keycloak/realm-export.json` (roles matching
 `config/dev_users.yaml`, 9 dev users, a confidential `awp-gateway` client)
 imports into a new `keycloak` service; `verify_jwt` now branches on JWT
@@ -283,6 +286,34 @@ turned out to be two genuinely different values behind Docker) — both in
 `DEVIATIONS.md` #22.
 
 725 tests passing, ruff + mypy strict clean across every implemented
+package.
+
+Second Sprint 11 piece: the red-team suite + eval harness (doc 09 §4.4,
+§6-7). A new `evals/` workspace member (`awp-evals`) — `RedTeamCase`/
+`Outcome` pydantic schema, an `awp-eval` harness that dispatches a case as
+a real `TaskEnvelope` over the Redis bus and checks `required`/`forbidden`
+outcomes against the real result and `mcp-audit` tool-call counts — plus a
+5-case starter corpus covering all four doc-named attack categories
+(prompt injection via a ticket, jailbreak against HR-1's band-ceiling
+output filter, an OPS-1 CodeAssist cross-scope request, a tool-flooding
+measurement baseline). Live verification surfaced and fixed a real bug in
+the harness itself: it created the task row via `erp.dispatch_task` but
+never published it onto the bus (`TaskBus.dispatch`), so every case sat at
+`status=pending` forever, looking like an agent failure. After the fix,
+the `cross_scope` case ran clean and **passed** for real against the live
+stack (zero code context returned to an employee with no project
+allocation). The other four cases have not yet completed a clean live run
+— this host's Docker Desktop showed sustained instability (routine
+`docker` commands stalling for minutes) after a very long session of
+heavy container/LLM-load activity, and live-verifying them is left as a
+documented follow-up rather than claimed done — see `DEVIATIONS.md` #23
+for the full, honest account, including why the two still-unverified
+mechanisms (SUP-1's deterministic priority policy, HR-1's output filter)
+have independent reason for confidence even without today's live run. Doc
+09 §4.5's "per-agent tool-call budget (default 25)" is not implemented or
+enforced anywhere in this codebase — also `DEVIATIONS.md` #23.
+
+735 tests passing, ruff + mypy strict clean across every implemented
 package.
 
 ## Prerequisites
