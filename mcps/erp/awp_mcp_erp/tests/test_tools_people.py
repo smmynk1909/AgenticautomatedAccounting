@@ -294,3 +294,54 @@ async def test_convert_candidate_to_employee_requires_approval(
         "get_candidate", {"candidate_id": candidate["id"]}, _headers(_read_token())
     )
     assert updated_candidate["status"] == "hired"
+
+
+@pytest.mark.asyncio
+async def test_get_role_returns_seeded_role(erp_server: AwpMcpServer, base_org: dict) -> None:
+    role = await erp_server.dispatch_raw(
+        "get_role", {"role_id": base_org["role_id"]}, _headers(_read_token())
+    )
+    assert role["title"] == "Software Engineer (E2)"
+
+
+@pytest.mark.asyncio
+async def test_get_role_unknown_id_404s(erp_server: AwpMcpServer) -> None:
+    with pytest.raises(NotFoundError):
+        await erp_server.dispatch_raw(
+            "get_role", {"role_id": "not-a-role"}, _headers(_read_token())
+        )
+
+
+@pytest.mark.asyncio
+async def test_upsert_role_caches_role_profile(
+    erp_server: AwpMcpServer, base_org: dict
+) -> None:
+    updated = await erp_server.dispatch_raw(
+        "upsert_role",
+        {
+            "record": {
+                "id": base_org["role_id"],
+                "role_profile": {"must_have": ["Python"], "min_exp_months": 24},
+            }
+        },
+        _headers(_write_token()),
+    )
+    assert updated["role_profile"]["must_have"] == ["Python"]
+
+
+@pytest.mark.asyncio
+async def test_upsert_role_creates_new_role(erp_server: AwpMcpServer, base_org: dict) -> None:
+    created = await erp_server.dispatch_raw(
+        "upsert_role",
+        {
+            "record": {
+                "title": "Data Analyst (E2)",
+                "grade": "E2",
+                "dept_id": base_org["dept_id"],
+                "role_profile": {},
+            }
+        },
+        _headers(_write_token()),
+    )
+    assert created["title"] == "Data Analyst (E2)"
+    assert created["id"] != base_org["role_id"]

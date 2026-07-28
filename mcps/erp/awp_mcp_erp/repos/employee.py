@@ -14,6 +14,7 @@ from awp_mcp_erp.tables import (
     employees,
     roles,
     salary_bands,
+    skills_master,
 )
 
 
@@ -79,6 +80,16 @@ class SalaryBandRepo(RepoBase):
         if grade:
             stmt = stmt.where(self.table.c.grade == grade)
         stmt = stmt.order_by(self.table.c.effective_from.desc())
+        rows = (await self.session.execute(stmt)).mappings().all()
+        return [dict(r) for r in rows]
+
+
+class SkillsMasterRepo(RepoBase):
+    table = skills_master
+
+    async def query(self) -> list[dict[str, Any]]:
+        stmt = select(self.table).where(self.table.c.deleted_at.is_(None))
+        stmt = stmt.order_by(self.table.c.name)
         rows = (await self.session.execute(stmt)).mappings().all()
         return [dict(r) for r in rows]
 

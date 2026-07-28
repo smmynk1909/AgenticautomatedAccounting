@@ -13,6 +13,7 @@ from awp_mcp_erp.tools_assets import register_asset_tools
 from awp_mcp_erp.tools_dashboard import register_dashboard_tools
 from awp_mcp_erp.tools_people import register_people_tools
 from awp_mcp_erp.tools_policies import register_policy_tools
+from awp_mcp_erp.tools_projects import register_project_tools
 from awp_mcp_erp.tools_tasks import register_task_tools
 from awp_mcp_erp.tools_tickets import register_ticket_tools
 
@@ -25,4 +26,5 @@ def make_erp_server(uow: UnitOfWork, redis: Redis, audit_sink: AuditSink) -> Awp
     register_task_tools(server, uow)
     register_dashboard_tools(server, uow)
     register_policy_tools(server, uow)
+    register_project_tools(server, uow)
     return server

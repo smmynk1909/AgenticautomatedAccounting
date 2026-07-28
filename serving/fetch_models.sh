@@ -9,12 +9,10 @@ cd "$(dirname "$0")/.."
 COMPOSE="docker compose -f deploy/docker-compose.dev.yml --env-file .env"
 
 MODELS=(
-  "qwen2.5:7b-instruct"   # M-GEN
-  "qwen2.5:3b-instruct"   # M-SMALL
-  # Uncomment when the owning sprint lands (avoids pulling multi-GB models
-  # nobody can use yet):
-  # "qwen2.5-coder:7b-instruct"  # M-CODE, Sprint 9/10 (OPS-1 CodeAssist)
-  # "bge-m3"                     # M-EMB, Sprint 7 (mcp-search)
+  "qwen2.5:7b-instruct"          # M-GEN
+  "qwen2.5:3b-instruct"          # M-SMALL
+  "bge-m3"                       # M-EMB, Sprint 7 (mcp-search)
+  "qwen2.5-coder:7b-instruct"    # M-CODE, Sprint 10 (OPS-1 CodeAssist)
 )
 
 echo "Pulling ${#MODELS[@]} model(s) into the ollama container..."
@@ -32,6 +30,8 @@ done
   echo "|---|---|---|---|"
   echo "| qwen2.5:7b-instruct | Apache-2.0 | Ollama default (Q4_K_M) | M-GEN — doc 01 §2 |"
   echo "| qwen2.5:3b-instruct | Apache-2.0 (verify at pull time) | Ollama default (Q4_K_M) | M-SMALL — doc 01 §2 |"
+  echo "| bge-m3 | MIT (verify at pull time) | Ollama default | M-EMB — doc 01 §2, mcp-search |"
+  echo "| qwen2.5-coder:7b-instruct | Apache-2.0 (verify at pull time) | Ollama default (Q4_K_M) | M-CODE — doc 01 §2, OPS-1 CodeAssist |"
   echo
   echo "Re-verify each checkpoint's license whenever swapping versions (doc 01 §6)."
 } > serving/MODELS.md

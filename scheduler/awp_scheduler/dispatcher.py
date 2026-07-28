@@ -16,6 +16,7 @@ from awp_shared.bus import TaskBus
 from awp_shared.schemas import AgentId, TaskEnvelope
 from redis.asyncio import Redis
 
+from awp_scheduler.fanout import FAN_OUT_FNS
 from awp_scheduler.jobs import JobSpec, is_due
 from awp_scheduler.payloads import PAYLOAD_FNS
 
@@ -44,21 +45,33 @@ async def dispatch_due_jobs(
         if not first:
             continue
 
-        payload = PAYLOAD_FNS[job.payload_fn](now)
-        env = TaskEnvelope(
-            from_agent=AgentId.SCHEDULER,
-            to_agent=AgentId(job.to_agent),
-            intent=job.intent,
-            payload=payload,
-            # doc 02 §3: never trust anything but the policy table for this —
-            # a cron-triggered task gets the same treatment as an LLM-planned
-            # one (e.g. `run_payroll` is gated regardless of who dispatched it).
-            requires_approval=registry.requires_approval(job.intent),
-        )
-        await mcp.call("erp", "dispatch_task", {"envelope": env.model_dump(mode="json")})
-        await bus.dispatch(env)
+        if job.fan_out:
+            # doc 02 §7 (Sprint 9): one envelope per item the resolver
+            # returns (e.g. one `project_health_report` per active
+            # project) — the outer dedupe key above already guarantees
+            # this whole fan-out only runs once per (job, minute), so no
+            # per-item dedupe is needed.
+            payloads = await FAN_OUT_FNS[job.fan_out](now, mcp)
+        else:
+            assert job.payload_fn is not None  # enforced by JobSpec.load_jobs
+            payloads = [PAYLOAD_FNS[job.payload_fn](now)]
+
+        for payload in payloads:
+            env = TaskEnvelope(
+                from_agent=AgentId.SCHEDULER,
+                to_agent=AgentId(job.to_agent),
+                intent=job.intent,
+                payload=payload,
+                # doc 02 §3: never trust anything but the policy table for
+                # this — a cron-triggered task gets the same treatment as an
+                # LLM-planned one (e.g. `run_payroll` is gated regardless of
+                # who dispatched it).
+                requires_approval=registry.requires_approval(job.intent),
+            )
+            await mcp.call("erp", "dispatch_task", {"envelope": env.model_dump(mode="json")})
+            await bus.dispatch(env)
+            logger.info("scheduler.dispatched", job=job.name, task_id=str(env.task_id))
         dispatched.append(job.name)
-        logger.info("scheduler.dispatched", job=job.name, task_id=str(env.task_id))
     return dispatched
 
 

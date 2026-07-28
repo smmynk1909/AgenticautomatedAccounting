@@ -16,6 +16,10 @@ def _broadcast_token() -> str:
     return mint_service_jwt("SUP-1", ["comms.notify.broadcast"])
 
 
+def _draft_token() -> str:
+    return mint_service_jwt("HR-1", ["comms.draft"])
+
+
 @pytest.mark.asyncio
 async def test_notify_user_records_outbox_entry(comms_server: AwpMcpServer) -> None:
     result = await comms_server.dispatch_raw(
@@ -42,6 +46,36 @@ async def test_send_reminder_records_outbox_entry(comms_server: AwpMcpServer) ->
         _headers(_notify_token()),
     )
     assert "outbox_id" in result
+
+
+@pytest.mark.asyncio
+async def test_draft_external_email_records_outbox_entry(comms_server: AwpMcpServer) -> None:
+    result = await comms_server.dispatch_raw(
+        "draft_external_email",
+        {"candidate_id": "C1", "subject": "Offer discussion", "body": "We're pleased to..."},
+        _headers(_draft_token()),
+    )
+    assert "outbox_id" in result
+
+
+@pytest.mark.asyncio
+async def test_draft_external_email_requires_fields(comms_server: AwpMcpServer) -> None:
+    with pytest.raises(ValidationError):
+        await comms_server.dispatch_raw(
+            "draft_external_email", {"candidate_id": "C1"}, _headers(_draft_token())
+        )
+
+
+@pytest.mark.asyncio
+async def test_draft_external_email_requires_scope(comms_server: AwpMcpServer) -> None:
+    from awp_shared.errors import PermissionDeniedError
+
+    with pytest.raises(PermissionDeniedError):
+        await comms_server.dispatch_raw(
+            "draft_external_email",
+            {"candidate_id": "C1", "subject": "x", "body": "y"},
+            _headers(_notify_token()),  # comms.notify, not comms.draft
+        )
 
 
 @pytest.mark.asyncio

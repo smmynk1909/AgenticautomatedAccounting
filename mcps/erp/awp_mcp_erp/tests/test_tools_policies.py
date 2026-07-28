@@ -7,7 +7,7 @@ from awp_shared.auth import mint_service_jwt
 from awp_shared.config import load_config
 from awp_shared.errors import NotFoundError, ValidationError
 
-from awp_mcp_erp.tables import entitlement_matrix, salary_bands
+from awp_mcp_erp.tables import entitlement_matrix, salary_bands, skills_master
 
 
 def _headers(token: str) -> dict[str, str]:
@@ -89,6 +89,29 @@ async def test_query_policies_salary_bands(erp_server: AwpMcpServer, uow: UnitOf
     )
     assert len(result["policies"]) == 1
     assert float(result["policies"][0]["mid"]) == 900000.0
+
+
+async def _seed_skill(uow: UnitOfWork) -> None:
+    async with uow() as session:
+        await session.execute(
+            skills_master.insert().values(
+                id="sk-py",
+                name="Python",
+                synonyms=["py", "python3"],
+                category="language",
+            )
+        )
+
+
+@pytest.mark.asyncio
+async def test_query_policies_skills_master(erp_server: AwpMcpServer, uow: UnitOfWork) -> None:
+    await _seed_skill(uow)
+    result = await erp_server.dispatch_raw(
+        "query_policies", {"domain": "skills_master"}, _headers(_read_token())
+    )
+    assert len(result["policies"]) == 1
+    assert result["policies"][0]["name"] == "Python"
+    assert result["policies"][0]["synonyms"] == ["py", "python3"]
 
 
 @pytest.mark.asyncio

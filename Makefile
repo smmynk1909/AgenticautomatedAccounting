@@ -10,7 +10,7 @@ COMPOSE = docker compose -f deploy/docker-compose.dev.yml --env-file .env
 
 dev: up models migrate seed  ## full local bring-up
 
-up:  ## start infra + MCP servers + gateway + agents (mcp-audit/approvals/erp/comms/docs/finance, gateway, orch0, sup1, adm1, fin1, scheduler)
+up:  ## start infra + MCP servers + gateway + agents (mcp-audit/approvals/erp/comms/docs/finance/search/hrsourcing/projects, gateway, orch0, sup1, adm1, fin1, hr1, ops1, scheduler)
 	$(COMPOSE) up -d
 
 down:  ## stop and remove containers (keeps volumes)
@@ -28,8 +28,9 @@ seed:  ## generate + load synthetic company data
 test:  ## lint + typecheck + unit + contract tests
 	uv run ruff check .
 	uv run mypy -p awp_shared -p awp_mcp_base -p awp_mcp_audit -p awp_mcp_approvals -p awp_mcp_erp \
-		-p awp_mcp_comms -p awp_mcp_docs -p awp_mcp_finance -p awp_agent_base -p awp_agent_orch0 \
-		-p awp_agent_sup1 -p awp_agent_adm1 -p awp_agent_fin1 -p awp_scheduler -p awp_gateway -p fincore
+		-p awp_mcp_comms -p awp_mcp_docs -p awp_mcp_finance -p awp_mcp_search -p awp_mcp_hrsourcing \
+		-p awp_mcp_projects -p awp_agent_base -p awp_agent_orch0 -p awp_agent_sup1 -p awp_agent_adm1 \
+		-p awp_agent_fin1 -p awp_agent_hr1 -p awp_agent_ops1 -p awp_scheduler -p awp_gateway -p fincore
 	uv run pytest -q
 
 web:  ## install + run the web app dev server (needs `make up`)
@@ -44,8 +45,8 @@ smoke:  ## model-gateway tool-call round trip (needs `make up models`)
 redteam:  ## approval-token forgery/replay/expiry red tests (subset live in mcps/*/tests today)
 	uv run pytest -q -k redteam
 
-eval:  ## placeholder until evals/ lands (Sprint 7+)
-	@echo "evals/ not implemented yet — see backlog Sprint 7+"
+eval:  ## resume-extraction F1/recall live eval, doc 04 §5.1-2 (needs `make up`)
+	uv run python scripts/resume_extraction_eval.py
 
 bootstrap:  ## one-shot: up, models, migrate, seed, smoke
 	bash scripts/dev_bootstrap.sh

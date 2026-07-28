@@ -220,3 +220,61 @@ dashboard_items = Table(
     Column("source_task_id", sa.String(36), nullable=True),
     Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
 )
+
+# doc 09 §1 "Projects/Work" — mirrors db/migrations/versions/0005_projects_work.py
+# exactly (see that migration's docstring: `sa.String(36)` id/FK columns,
+# fixed as part of Sprint 9, same DEVIATIONS.md #11 pattern as every other
+# table in this file).
+
+projects = Table(
+    "projects",
+    metadata,
+    Column("id", sa.String(36), primary_key=True),
+    Column("client", sa.String(160), nullable=False),
+    Column("sow_ref", sa.String(120), nullable=True),
+    Column("status", sa.String(20), nullable=False, server_default="active"),
+    Column("budget_hours", sa.Numeric(10, 2), nullable=True),
+    Column("billing_type", sa.String(20), nullable=False, server_default="t_and_m"),
+    # doc 05 §2.4/08 §8 (Sprint 10): which Gitea "owner/name" this
+    # project's repo lives at — nullable, not every project has one.
+    Column("repo_slug", sa.String(200), nullable=True),
+    *_audit_cols(),
+)
+
+milestones = Table(
+    "milestones",
+    metadata,
+    Column("id", sa.String(36), primary_key=True),
+    Column("project_id", sa.String(36), sa.ForeignKey("projects.id"), nullable=False),
+    Column("title", sa.String(200), nullable=False),
+    Column("due", sa.Date(), nullable=True),
+    Column("acceptance", JSON, nullable=False, default=dict),
+    Column("status", sa.String(20), nullable=False, server_default="planned"),
+    Column("invoice_trigger", sa.Boolean(), nullable=False, server_default=sa.false()),
+    *_audit_cols(),
+)
+
+allocations = Table(
+    "allocations",
+    metadata,
+    Column("id", sa.String(36), primary_key=True),
+    Column("emp_id", sa.String(20), sa.ForeignKey("employees.emp_id"), nullable=False),
+    Column("project_id", sa.String(36), sa.ForeignKey("projects.id"), nullable=False),
+    Column("pct", sa.Numeric(5, 2), nullable=False),
+    Column("from_date", sa.Date(), nullable=False),
+    Column("to_date", sa.Date(), nullable=True),
+    *_audit_cols(),
+)
+
+work_logs = Table(
+    "work_logs",
+    metadata,
+    Column("id", sa.String(36), primary_key=True),
+    Column("emp_id", sa.String(20), sa.ForeignKey("employees.emp_id"), nullable=False),
+    Column("project_id", sa.String(36), sa.ForeignKey("projects.id"), nullable=False),
+    Column("date", sa.Date(), nullable=False),
+    Column("hours", sa.Numeric(4, 2), nullable=False),
+    Column("task_ref", sa.String(120), nullable=True),
+    Column("notes", sa.Text(), nullable=True),
+    *_audit_cols(),
+)

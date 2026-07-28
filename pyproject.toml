@@ -17,9 +17,14 @@ dependencies = [
   "awp-agent-sup1",
   "awp-agent-adm1",
   "awp-agent-fin1",
+  "awp-agent-hr1",
   "awp-scheduler",
   "awp-gateway",
   "awp-mcp-docs",
+  "awp-mcp-search",
+  "awp-mcp-hrsourcing",
+  "awp-mcp-projects",
+  "awp-agent-ops1",
 ]
 
 [dependency-groups]
@@ -63,6 +68,11 @@ awp-agent-base = { workspace = true }
 awp-scheduler = { workspace = true }
 awp-gateway = { workspace = true }
 awp-mcp-docs = { workspace = true }
+awp-mcp-search = { workspace = true }
+awp-mcp-hrsourcing = { workspace = true }
+awp-agent-hr1 = { workspace = true }
+awp-mcp-projects = { workspace = true }
+awp-agent-ops1 = { workspace = true }
 
 [tool.ruff]
 line-length = 100
@@ -88,7 +98,7 @@ warn_unused_ignores = true
 # once. Passing file paths instead causes mypy to also treat them as CLI
 # targets alongside the import-resolved copy, i.e. "Source file found twice
 # under different module names".
-mypy_path = "fincore:shared:mcps/_base:mcps/audit:mcps/approvals:mcps/erp:mcps/comms:mcps/docs:mcps/finance:agents/_base:agents/orch0:agents/sup1:agents/adm1:agents/fin1:scheduler:gateway"
+mypy_path = "fincore:shared:mcps/_base:mcps/audit:mcps/approvals:mcps/erp:mcps/comms:mcps/docs:mcps/finance:mcps/search:mcps/hrsourcing:mcps/projects:agents/_base:agents/orch0:agents/sup1:agents/adm1:agents/fin1:agents/hr1:agents/ops1:scheduler:gateway"
 
 [[tool.mypy.overrides]]
 # Third-party packages that ship no/partial stubs; tighten as coverage improves.
@@ -104,6 +114,7 @@ module = [
   "pdfplumber.*",
   "docx.*",
   "openpyxl.*",
+  "qdrant_client.*",
 ]
 ignore_missing_imports = true
 
@@ -128,6 +139,11 @@ module = [
   "awp_agent_adm1.tests.*",
   "awp_mcp_finance.tests.*",
   "awp_agent_fin1.tests.*",
+  "awp_mcp_search.tests.*",
+  "awp_mcp_hrsourcing.tests.*",
+  "awp_agent_hr1.tests.*",
+  "awp_mcp_projects.tests.*",
+  "awp_agent_ops1.tests.*",
 ]
 disallow_any_generics = false
 disallow_untyped_defs = false

@@ -83,6 +83,30 @@ def register_notify_tools(server: AwpMcpServer, uow: UnitOfWork) -> None:
         )
 
     @server.tool()
+    async def draft_external_email(payload: dict[str, Any], ctx: Ctx) -> dict[str, Any]:
+        # doc 04 §2.4/§3: "draft-only object; sending is a human click" — no
+        # real send path exists in this build (DEVIATIONS.md #10, same
+        # dev-mode-stub delivery gap as notify_user/send_reminder). Callers
+        # are expected to have already gated the exact frozen text through
+        # an approval (e.g. HR-1's `offer_communication`) before calling
+        # this — this tool only durably records it.
+        candidate_id = payload.get("candidate_id")
+        subject = payload.get("subject")
+        body = payload.get("body")
+        if not candidate_id or not subject or not body:
+            raise ValidationError("draft_external_email requires 'candidate_id', 'subject', 'body'")
+        return await _record(
+            uow,
+            ctx,
+            kind="draft_external_email",
+            recipient_type="candidate",
+            recipient_id=candidate_id,
+            subject=subject,
+            body=body,
+            refs=payload.get("refs", {}),
+        )
+
+    @server.tool()
     async def incident_broadcast(payload: dict[str, Any], ctx: Ctx) -> dict[str, Any]:
         # doc 07 §3.4: P1 breach -> Director + CEO panel + incident channel.
         # No role targeting param here on purpose — a broadcast reaches

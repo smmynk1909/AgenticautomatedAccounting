@@ -7,6 +7,8 @@ Create Date: 2026-07-25
 
 from __future__ import annotations
 
+from typing import Any
+
 import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects import postgresql as pg
@@ -17,7 +19,7 @@ branch_labels = None
 depends_on = None
 
 
-def _audit_cols() -> list[sa.Column]:
+def _audit_cols() -> list[sa.Column[Any]]:
     return [
         sa.Column(
             "created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()

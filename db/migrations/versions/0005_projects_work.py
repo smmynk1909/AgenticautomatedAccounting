@@ -1,11 +1,24 @@
 """0005_projects_work — doc 09 §1 "Projects/Work" tables.
 
+Every id/FK column is `sa.String(36)`, not `pg.UUID(as_uuid=True)` — same
+fix as migration 0001, applied here only once Sprint 9 actually needed a
+Core mirror against these tables (`mcps/erp/awp_mcp_erp/tables.py`'s
+`projects`/`milestones`/`allocations`/`work_logs`). This migration had sat
+unfixed since Sprint 1 — DEVIATIONS.md #11 named it explicitly as a
+"check this before building a new Core mirror" item, so this isn't a fresh
+discovery, just finally doing the check it flagged. `acceptance`'s
+`pg.JSONB()` stays as-is (real Postgres type in the migration; the Core
+mirror still uses generic `sa.JSON`, same split every other table in this
+build uses — JSONB isn't a serialization-mismatch risk the way `uuid` is).
+
 Revision ID: 0005_projects_work
 Revises: 0004_finance
 Create Date: 2026-07-25
 """
 
 from __future__ import annotations
+
+from typing import Any
 
 import sqlalchemy as sa
 from alembic import op
@@ -17,7 +30,7 @@ branch_labels = None
 depends_on = None
 
 
-def _audit_cols() -> list[sa.Column]:
+def _audit_cols() -> list[sa.Column[Any]]:
     return [
         sa.Column(
             "created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()
@@ -34,7 +47,7 @@ def upgrade() -> None:
         "projects",
         sa.Column(
             "id",
-            pg.UUID(as_uuid=True),
+            sa.String(36),
             primary_key=True,
             server_default=sa.text("gen_random_uuid()"),
         ),
@@ -50,12 +63,12 @@ def upgrade() -> None:
         "milestones",
         sa.Column(
             "id",
-            pg.UUID(as_uuid=True),
+            sa.String(36),
             primary_key=True,
             server_default=sa.text("gen_random_uuid()"),
         ),
         sa.Column(
-            "project_id", pg.UUID(as_uuid=True), sa.ForeignKey("projects.id"), nullable=False
+            "project_id", sa.String(36), sa.ForeignKey("projects.id"), nullable=False
         ),
         sa.Column("title", sa.String(200), nullable=False),
         sa.Column("due", sa.Date(), nullable=True),
@@ -70,13 +83,13 @@ def upgrade() -> None:
         "allocations",
         sa.Column(
             "id",
-            pg.UUID(as_uuid=True),
+            sa.String(36),
             primary_key=True,
             server_default=sa.text("gen_random_uuid()"),
         ),
         sa.Column("emp_id", sa.String(20), sa.ForeignKey("employees.emp_id"), nullable=False),
         sa.Column(
-            "project_id", pg.UUID(as_uuid=True), sa.ForeignKey("projects.id"), nullable=False
+            "project_id", sa.String(36), sa.ForeignKey("projects.id"), nullable=False
         ),
         sa.Column("pct", sa.Numeric(5, 2), nullable=False),
         sa.Column("from_date", sa.Date(), nullable=False),
@@ -90,13 +103,13 @@ def upgrade() -> None:
         "work_logs",
         sa.Column(
             "id",
-            pg.UUID(as_uuid=True),
+            sa.String(36),
             primary_key=True,
             server_default=sa.text("gen_random_uuid()"),
         ),
         sa.Column("emp_id", sa.String(20), sa.ForeignKey("employees.emp_id"), nullable=False),
         sa.Column(
-            "project_id", pg.UUID(as_uuid=True), sa.ForeignKey("projects.id"), nullable=False
+            "project_id", sa.String(36), sa.ForeignKey("projects.id"), nullable=False
         ),
         sa.Column("date", sa.Date(), nullable=False),
         sa.Column("hours", sa.Numeric(4, 2), nullable=False),

@@ -20,7 +20,7 @@ from awp_shared.errors import ConflictError, NotFoundError, ValidationError
 from redis.asyncio import Redis
 
 from awp_mcp_erp.dedupe import find_duplicates
-from awp_mcp_erp.repos.employee import CandidateRepo, EmployeeRepo
+from awp_mcp_erp.repos.employee import CandidateRepo, EmployeeRepo, RoleRepo
 from awp_mcp_erp.wire import parse_date
 
 # doc 03 §2.2: mutating these on an *existing* employee needs human sign-off
@@ -239,3 +239,41 @@ def register_people_tools(server: AwpMcpServer, uow: UnitOfWork, redis: Redis) -
             employee = await emp_repo.get(emp_fields["emp_id"])
         assert employee is not None
         return _mask_employee(employee, full=False)
+
+    @server.tool()
+    async def get_role(payload: dict[str, Any], ctx: Ctx) -> dict[str, Any]:
+        role_id = payload.get("role_id")
+        if not role_id:
+            raise ValidationError("get_role requires 'role_id'")
+        async with uow() as session:
+            row = await RoleRepo(session).get(role_id)
+        if row is None:
+            raise NotFoundError(f"no such role: {role_id}")
+        return row
+
+    @server.tool()
+    async def upsert_role(payload: dict[str, Any], ctx: Ctx) -> dict[str, Any]:
+        # doc 04 §2.1: "recruiter confirms RoleProfile once per role —
+        # cached" — not in doc 08 §1's original People tool list (which
+        # only names employee/candidate tools), added once HR-1 (Sprint 7)
+        # needed somewhere to persist the parsed RoleProfile JSON that
+        # `roles.role_profile` already had a column for since Sprint 1.
+        record = payload.get("record")
+        if not record:
+            raise ValidationError("upsert_role requires 'record'")
+        async with uow() as session:
+            repo = RoleRepo(session)
+            role_id = record.get("id")
+            if role_id:
+                existing = await repo.get(role_id)
+                if existing is None:
+                    raise NotFoundError(f"no such role: {role_id}")
+                await repo.update(role_id, {k: v for k, v in record.items() if k != "id"})
+                updated = await repo.get(role_id)
+                assert updated is not None
+                return updated
+            new_id = str(uuid.uuid4())
+            await repo.insert({**record, "id": new_id})
+            created = await repo.get(new_id)
+        assert created is not None
+        return created

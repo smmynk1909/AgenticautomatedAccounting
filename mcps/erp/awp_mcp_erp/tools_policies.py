@@ -20,7 +20,7 @@ from awp_shared.config import ConfigError, load_config
 from awp_shared.errors import NotFoundError, ValidationError
 
 from awp_mcp_erp.repos.asset import EntitlementRepo
-from awp_mcp_erp.repos.employee import SalaryBandRepo
+from awp_mcp_erp.repos.employee import SalaryBandRepo, SkillsMasterRepo
 
 WHOLE_TABLE_DOMAINS = frozenset({"sla", "routing", "gates", "scopes", "shortlist", "sources"})
 
@@ -63,11 +63,21 @@ def register_policy_tools(server: AwpMcpServer, uow: UnitOfWork) -> None:
                 rows = await SalaryBandRepo(session).query(grade=payload.get("grade"))
             return {"domain": domain, "policies": rows}
 
+        if domain == "skills_master":
+            # doc 04 §2.2's controlled vocabulary table, needed by
+            # mcp-hrsourcing.skill_normalize (Sprint 7) — same
+            # "caller supplies data it can't reach cross-server" convention
+            # as salary_bands above (DEVIATIONS.md #17), applied to the
+            # "no MCP server calls another MCP server" rule.
+            async with uow() as session:
+                rows = await SkillsMasterRepo(session).query()
+            return {"domain": domain, "policies": rows}
+
         if domain in WHOLE_TABLE_DOMAINS:
             try:
                 return {"domain": domain, "policies": load_config(domain)}
             except ConfigError as exc:
                 raise NotFoundError(f"policy domain {domain!r} config missing: {exc}") from exc
 
-        known = sorted({"entitlements", "salary_bands", *WHOLE_TABLE_DOMAINS})
+        known = sorted({"entitlements", "salary_bands", "skills_master", *WHOLE_TABLE_DOMAINS})
         raise ValidationError(f"unknown policy domain: {domain!r} (known: {known})")

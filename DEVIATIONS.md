@@ -650,3 +650,375 @@ for the first time.
 
 472 -> 527 tests passing (mcp-erp +1, mcp-docs +2, mcp-finance +3,
 `agents/fin1`: 41 new, `scripts/shadow_diff`: 4 new).
+
+## 18. Sprint 7 — mcp-search + mcp-hrsourcing + HR-1 (audit, shortlist)
+
+**External sourcing connectors (doc 04 §2.1 step 3) not built.** The doc
+itself marks external job-board connectors "Phase 3" — `sourcer.py`'s
+`search_internal_pool` only exercises `mcp-search.search_candidates`
+(internal DB), matching doc 12 §5's Sprint 7 DoD (04§5.1-2), which needs
+only the internal path live. `mcps/hrsourcing/awp_mcp_hrsourcing/sources.py`
+exists as a stub for the connector interface, not a working connector.
+
+**RoleProfile "recruiter confirms once per role" isn't approval-gated.**
+Doc 04 §2.1 describes a human touchpoint here; no gate is registered for it
+in `gates.yaml` (unlike every other HITL step this build implements), so
+`sourcer.get_or_build_role_profile` parses-and-caches automatically on
+first use. Same class of scoped-down human-confirmation step as ADM-1's
+RegistryKeeper merge path (#14) — raised here rather than silently assumed.
+
+**mcp-search's `qdrant` container ships no `curl`/`wget`/`nc`**, so it has
+no Docker healthcheck; dependents (`mcp-search`, indirectly `hr1`) use
+`condition: service_started` like `ollama` does, and `mcp-search` retries
+Qdrant collection creation on boot rather than assuming the port is open
+the instant the container starts.
+
+**`serving/fetch_models.sh` had `bge-m3` (M-EMB) commented out** with a
+"Sprint 7" marker from when the model pool list was written ahead of the
+sprint that needed it — uncommented as part of actually landing Sprint 7,
+not a new decision.
+
+**Extraction F1 acceptance test (doc 04 §5.1): live-verification found a
+real quality problem, not yet root-caused as of this writing.**
+`scripts/resume_extraction_eval.py` initially failed on infrastructure
+grounds — `mcp-hrsourcing`'s internal `LLM` client used the 60s default
+timeout, too short for this host's measured CPU-inference throughput
+(~1.45 tok/s under this WSL2/Docker Desktop setup, no GPU passthrough) —
+fixed by raising `mcp-hrsourcing/main.py`'s `LLM(timeout_s=...)` to 600 and
+the eval script's own `MCP(timeout_s=...)` to 1500. With that infra issue
+resolved, `normalize_profile` calls do complete and return 200 OK, but the
+extracted `CandidateProfile` JSON has near-zero field overlap with ground
+truth on most of the labeled set (sampled early results: F1 0.000 on the
+large majority of the first 24/50 resumes, a couple at 0.333) — nowhere
+near the ≥0.92 bar. This is a live-verified finding, not a hypothesis, but
+the root cause (prompt, `guided_json`/Ollama structured-output interaction,
+or a genuine capability ceiling for `qwen2.5:3b-instruct` on this task) has
+not yet been diagnosed. Sprint 7's code, config, and unit test suite (587
+passing at the time of this entry) are otherwise complete and were live
+container-verified (all Sprint 7 services start and respond cleanly); the
+acceptance *number* itself is the open item, tracked here rather than
+claimed as passing.
+
+## 19. Sprint 8 — HR-1 (negotiation, training) + output_filter + bias suite
+
+**`prepare_negotiation`'s candidate-facing draft path isn't a separate
+intent.** Doc 04 §2.4 describes two things under NegotiationDesk: building
+the `NegotiationPack` (its own step, `gate: null` in `intents.yaml`) and a
+"chat-assist mode" where a recruiter pastes a candidate's counter-offer
+into an ongoing conversation and the agent responds within band, escalating
+to Director if the counter exceeds it. No intent for this chat-assist loop
+exists in `config/intents.yaml`, and doc 12 §7's build instructions forbid
+inventing intents not already in docs/config. Rather than leave the
+`offer_communication` gate and the output filter — the two things doc 12
+§5's S8 line and doc 04 §5's acceptance test 3 actually name — unbuilt,
+`prepare_negotiation`'s existing payload gained two optional fields
+(`draft_email: bool`, `offer_terms: dict`): when set, the same task also
+drafts a candidate email, runs it through `output_filter.check_draft`, and
+if clean, gates it on `offer_communication` before recording the frozen
+text via `mcp-comms.draft_external_email`. The full multi-turn "recruiter
+pastes counter, agent replies, escalates past band" chat loop is not built
+— that needs an interactive session mechanism no agent in this codebase
+has yet (OPS-1's `code_assist_session`, Sprint 10, is the closest analog
+and isn't built either). A follow-up doc PR naming an explicit intent for
+the chat-assist loop would remove this gap cleanly.
+
+**`training.py`'s skill-gap analysis is presence-based and current-role-only,
+not level-based or current+next-grade.** doc 04 §2.5 step 1 asks for
+`current_level`/`target_level` and "current+next-grade role" comparison.
+No proficiency-level data exists anywhere in this schema — `employees.skills`
+and `CandidateProfile.skills_normalized` are both plain name lists, doc 09
+§1's DDL sketch has no per-skill level column — so `current_level` is
+"present"/"absent", not a level. "Next-grade role" needs a career-ladder
+table (which `role_id` is the next grade up from a given one) that doesn't
+exist; gap analysis compares only against the employee's current role.
+Both are "the data model doesn't exist yet" deferrals, the same pattern as
+`fpna.py`'s flat-rate forecast (#17) and the missing contract corpus (#17).
+
+**`search_kb` doesn't pass through per-chunk metadata**, so
+`training.match_training_plan`'s course/hours/cost fields default to a
+generic fallback (course name = the chunk's first 80 chars, hours=8,
+cost=0) rather than being read from whatever `upsert_documents` metadata a
+real `training_catalog` corpus entry would carry. `doc 08 §4` doesn't list
+a `metadata` field on `search_kb`'s hit shape either — extending it is a
+follow-up doc PR, not a Sprint 8 code bug.
+
+**Quarterly scheduled training runs (doc 04 §2.5: "Quarterly (scheduled) +
+on-demand per manager") are not wired into `scheduler/jobs.yaml`.** Only
+the on-demand path (`plan_training` intent, one employee at a time) is
+built — doc 12 §5's S8 DoD names the acceptance tests (04§5.3-4), not the
+cron wiring, and no sprint in the 12-sprint table revisits HR-1 after S8 to
+claim it later either.
+
+**HR-1f TicketHandler remains completely unscoped** — doc 12 §5's sprint
+table has no entry for it anywhere from S1 through S12; `graph.py`'s
+`_route_entry` still raises `ValidationError` for any HR-category ticket
+intent (there isn't even a payload model or intent name registered for
+one). Not a Sprint 8 gap specifically — flagged here since Sprint 8 was the
+last opportunity in the doc's own plan to name it and didn't.
+
+**No `market_intel`/`training_catalog` corpus data has been seeded** into
+`mcp-search` (`upsert_documents` has never been called for either corpus in
+any sprint, including this one) — `negotiation.py`'s market benchmark and
+`training.py`'s market-demand scoring both correctly degrade to "unknown"/
+zero rather than fabricating a citation, per doc 04's "market claims
+require a citation ... otherwise say unknown" rule, but this means neither
+path has been exercised against real corpus hits, only the empty-corpus
+branch. Seeding a synthetic `market_intel`/`training_catalog` corpus (same
+spirit as `db/seed/generate_synthetic.py`) is a reasonable follow-up, not
+done here.
+
+**Live Docker verification not yet performed for Sprint 8** — code is
+complete, mypy/ruff clean, and the full unit/graph-level test suite passes
+(including the two doc-named acceptance tests: output-filter block on a
+band-ceiling leak, and masked-cohort shortlist parity), but a real
+`prepare_negotiation`/`plan_training` task has not been dispatched over the
+live Redis bus to the real `hr1` container the way Sprint 4-6's flows were.
+Deferred pending the CPU-inference throughput issue noted in #18 — every
+live path here also needs a real M-GEN call (talk track, candidate email
+draft), and that call is the same slow path already under investigation.
+(Update from Sprint 9's live verification below: a real M-GEN call *does*
+complete on this host, just slowly — ~5.5 minutes for one short narrative.
+The throughput issue is a real inconvenience for live verification and
+production latency, not a hard blocker. Sprint 8's own live dispatch is
+still not done as of this writing, just less alarming than it looked.)
+
+## 20. Sprint 9 — mcp-projects + OPS-1 (tracker, monitor, risk)
+
+**Migration 0005 (`projects`/`milestones`/`allocations`/`work_logs`) still
+had `pg.UUID` columns — exactly the item DEVIATIONS.md #11 named as
+"check this before building a new Core mirror".** Fixed in place (same
+"edit the migration file directly" approach as 0001-0003, since these four
+tables had never been written to by any tool in any sprint — nothing to
+lose). **The live dev database was a different story**: it's been running
+continuously since Sprint 1-8's verification and holds real data in
+tables 0005-0010 touch, so downgrading past 0005 to re-apply it (the
+naive fix) would have discarded that. Instead, a new forward-only
+migration (`0012_fix_projects_work_uuid.py`) `ALTER COLUMN ... TYPE
+VARCHAR(36)` on the four affected tables, applied once to reconcile the
+live database — a fresh `alembic upgrade head` from empty never runs its
+body (0005 already creates the columns correctly). Hit and fixed live: the
+first real attempt at this ALTER failed —
+`milestones_project_id_fkey cannot be implemented: uuid and character
+varying` — Postgres won't retype a referenced PK column while an FK still
+references it with the old type; the migration drops the three
+`project_id` FKs first, alters every column, then recreates them.
+
+**A new, previously-unhit wire-serialization bug**: `mcpc.MCP.call`
+returns a plain `dict[str, Any]` from `r.json()` — a `sa.Date()` column
+comes back from any MCP tool as an ISO string, not a real `date` object.
+Every prior sprint's agent code happened to never do date *arithmetic* on
+an MCP response field (dates were stored, displayed, or passed straight
+through, never compared), so this was never hit before OPS-1's
+`milestones_at_risk`/`overdue_milestones`/`timeline_radar` (all doing
+`due - today` or `due < today`). Live-verified failure on the first real
+dispatch: `'<' not supported between instances of 'str' and
+'datetime.date'`. Fixed with `nodes.py`'s `_coerce_milestone_dates`,
+applied at both call sites (`project_health_report`, `timeline_risk_scan`)
+— and the graph-level tests were rewritten to pass ISO strings (matching
+what the wire actually carries) instead of `date` objects, since the
+original date-object versions of those tests could never have caught this.
+
+**Milestone-at-risk has no "linked tasks" data source.** Doc 05 §2.2's
+rule is "due within 14d & <70% linked tasks done" — this schema has no
+task-per-milestone linkage anywhere (`orchestrator_tasks` tracks
+agent-execution tasks, not project deliverables, and no sprint has built
+one for actual delivery work items). `projectmonitor.milestones_at_risk`
+is due-date + status only. The doc 05 §5.2-equivalent acceptance bar
+("precision >= 0.8 on historical backtest set") has no historical dataset
+to backtest against either (same "no data source built yet" pattern as
+every other backtest-needing acceptance test in this build, e.g. Sprint
+7's F1 harness) — proven against synthetic fixtures instead
+(`tests/test_projectmonitor.py`), not a real precision number.
+
+**Timeline radar only uses milestone due dates** (plus the already-real
+`milestones.invoice_trigger` column for impact weighting) — doc 05 §2.3
+also names contract-renewal dates and compliance/report deadlines as
+radar sources, neither of which has a field anywhere in this schema.
+
+**No skill-match check on `assign_employee_project`.** Doc 05 §2.1: "check
+availability & skill match (skills_master vs project needs)" —
+`worktracker.check_allocation_conflict` only checks capacity (%
+overlap); `projects` has no skill-requirements field in this schema (doc
+09 §1's DDL sketch doesn't give it one either), so there's nothing to
+match against.
+
+**No cross-functional ticket creation on S1 escalation.** Doc 05 §2.3:
+"creates a SUP-1 cross-functional ticket if another department is needed
+(e.g., FIN-1 for invoice hold, HR-1 for emergency staffing)" — the
+department-needed heuristic isn't specified precisely enough to build
+without guessing at business rules the doc doesn't state, and doc 12 §5's
+S9 DoD (05§5.1-2,4) doesn't name it. The Director-notification +
+dashboard-flag half of S1 escalation (acceptance test 4) is implemented
+and live-verified.
+
+**Scheduler fan-out**: `project_health_report_weekly` needed one
+`TaskEnvelope` per *currently active* project, which the scheduler had no
+mechanism for (every prior job was a single fixed or computed payload) —
+`jobs.py`'s `JobSpec` gained an optional `fan_out` field (mutually
+exclusive with `payload_fn`) naming an async resolver in the new
+`awp_scheduler/fanout.py`; `dispatcher.dispatch_due_jobs` dispatches one
+envelope per payload the resolver returns. This is exactly the capability
+gap `jobs.yaml`'s own header comment had flagged since Sprint 1 ("no MCP
+tool exposes that yet ... revisit once that capability exists") —
+resolved once `mcp-erp.query_projects` existed, not a new idea.
+
+**Live end-to-end verification (real Docker stack, real Postgres, real
+Redis, real Ollama, no mocks)**: created a real project + overdue
+milestone + delivery issue via `mcp-erp`/`mcp-projects` directly, then
+dispatched a real `project_health_report` task over the Redis bus to the
+real `ops1` container. First attempt crash-looped on the wire-
+serialization bug above (caught, fixed, rebuilt); second attempt
+completed in ~5.5 minutes (M-GEN narrative generation on this host's slow
+CPU inference — see #18/#19), publishing a real `project_health` dashboard
+item with `severity=critical` and a narrative that correctly cited the
+computed budget/schedule variance numbers with no fabricated claims
+(satisfying "0 uncited commitments" by construction, per `narrative.py`'s
+design) — though the narrative's own opening sentence ("currently on
+track with no risks identified") contradicted the correctly-cited +100%
+schedule variance later in the same paragraph, a model coherence
+limitation, not a pipeline defect. A `timeline_risk_scan` dispatch (no
+LLM call) completed in ~3 seconds. The `assign_employee_project` gated
+flow and the S1-escalation branch specifically were not live-dispatched
+this sprint (both are graph-tested, and every MCP call the escalation
+branch makes — `create_issue`, `notify_user`, `push_dashboard_item` — was
+independently live-verified either directly or in an earlier sprint).
+
+670 tests passing at the time of this entry.
+
+## 21. Sprint 10 — mcp-projects repo tools + secrets_scan + OPS-1 CodeAssist + IDE endpoint
+
+**`search_code` is not implemented on `mcp-projects`.** Doc 08 §8 lists it,
+but the real vector index lives in Qdrant via `mcp-search` (Sprint 7 infra)
+and "no MCP server calls another MCP server" means `mcp-projects.index_repo`
+can only return chunks, never store them itself — the calling agent (OPS-1)
+feeds `index_repo`'s output into `mcp-search.upsert_documents` and searches
+it back via `mcp-search.search_kb(corpus=..., ...)`. A `search_code` tool
+here would just be a second, redundant entry point to data `mcp-search`
+already owns. Nothing in this build automates the `index_repo` ->
+`upsert_documents` hookup either (no OPS-1 node or scheduled job calls
+`index_repo`) — live verification below did this by hand, the same gap
+noted for RAG-shaped steps elsewhere in this codebase (e.g. ADM-1's deferred
+playbook lookup, `DEVIATIONS.md` #14).
+
+**`ci_status` always returns `"not_configured"`.** No CI system exists in
+this build (no sprint has built or scheduled one) — a real "not configured"
+status is returned rather than fabricating a green/red result.
+
+**`suggest_patch` never pushes to Gitea.** Doc 08 §8: "patch artifact for
+human application, no direct commits" — the tool only persists the artifact
+(`patch_artifacts`, migration `0013_codeassist`); nothing in this codebase
+ever calls Gitea's write API.
+
+**CodeAssist's chat-assist ACL identity is a request field, not session
+identity.** `config/dev_users.yaml`'s dev sessions are role-based
+(`dev-employee`, `dev-manager`, ...), not per-engineer, so there's no JWT
+`sub` mapping to a real `emp_id` the way a Keycloak-issued token eventually
+will (Sprint 11). The gateway's `POST /v1/chat/completions` takes `emp_id`
+as an explicit request field instead — `require_human` still gates the
+endpoint to *some* authenticated session, but the doc 05 §5.5 ACL check is
+keyed off the `emp_id` field, not the session identity.
+
+**The IDE endpoint doesn't stream.** `stream: true` isn't implemented —
+`POST /v1/chat/completions` returns the final message in one response only.
+A real SSE `data: {...}\n\n` streaming implementation is a reasonable
+follow-up; no Sprint 10 acceptance test (doc 12 §5 cites only 05§5.3,5)
+requires it.
+
+**Two real bugs found and fixed by live verification, neither caught by
+the unit/graph-level suite (711 tests passing at the time of this entry):**
+
+- **Qdrant collection-naming bug.** `nodes.py`'s `code_assist_session` node
+  originally built the search corpus as `f"code:{repo_slug}"`, and
+  `repo_slug` is a real Gitea `owner/name` slug (e.g.
+  `awp-admin/awp-sample-svc`) — containing a `/`. Qdrant's REST client takes
+  the collection name as a raw URL path segment, so the embedded `/` split
+  the path and every call 404'd
+  (`qdrant_client.http.exceptions.UnexpectedResponse: Unexpected Response:
+  404` on `collection_exists`). No unit test ever hits a real Qdrant server
+  (`qdrant_store.py`'s own docstring notes tests use the `:memory:`
+  in-process backend), so this was invisible until a real `index_repo` ->
+  `upsert_documents` -> `search_kb` round-trip against the real container.
+  Fixed with a new `agents/ops1/awp_agent_ops1/codeassist.py:code_corpus_name()`
+  helper (`/` -> `_`, matching doc 09 §1's `code_{project}` collection-naming
+  convention) — confirmed both by a direct `upsert_documents`/`search_kb`
+  call (bypassing the agent) and, after rebuilding `ops1`, by a real
+  end-to-end agent dispatch.
+- **M-CODE cold-load timeout.** The first-ever call to
+  `qwen2.5-coder:7b-instruct` (M-CODE, never invoked in any earlier sprint)
+  kept failing with an empty-message "unreachable" error. `docker logs
+  deploy-ollama-1` showed why: loading a ~4.7GB GGUF model from disk on this
+  host took well over 180s, and every time the agent's LLM client's
+  `timeout_s=180` fired mid-load, Ollama aborted the in-progress load
+  entirely (`"client connection closed before llama-server finished
+  loading, aborting load"`) rather than resuming it — so three 180s retries
+  never made cumulative progress toward finishing a cold load; the model
+  could, in principle, never finish loading under that timeout regime no
+  matter how many retries ran. Fixed two ways: `agents/ops1/awp_agent_ops1/main.py`'s
+  `llm_code` client timeout raised from 180s to 900s (enough for one attempt
+  to ride out a cold load without being cancelled), and
+  `deploy/docker-compose.dev.yml`'s `ollama` service gained
+  `OLLAMA_KEEP_ALIVE=1h` (default is 5 minutes — shorter than this host
+  needs between calls during active development/verification, which was
+  making the model evict and re-cold-load between successive test
+  dispatches). Both models (M-CODE and `bge-m3`, the embedding model
+  `search_kb` needs) stayed resident and responsive for the rest of the
+  session once warmed.
+
+**New deviation: this host's Docker Desktop drops long-held HTTP
+connections to the gateway's new long-poll endpoint.** `POST
+/v1/chat/completions` (like doc 06's payroll dispatch and doc 05's health
+report before it) blocks up to `POLL_TIMEOUT_S=600` waiting for the
+dispatched task to finish. On this specific machine (Windows, Docker
+Desktop, WSL2 backend), that connection intermittently drops client-side —
+`curl` returning `502 Bad Gateway` or a bare connection reset — while the
+task keeps running and finishes successfully server-side regardless
+(confirmed repeatedly by querying `orchestrator_tasks` directly in Postgres
+after a client-visible "failure": e.g. task `b85bede9-0101-44ad-966c-a203a6641e2b`
+showed `502` to the client but `status='done'` with a correct result in the
+database). Short requests (`GET /openapi.json`, `POST /api/dev/login`)
+never showed this; only the long-held POST did, including on requests that
+never touch the (separately cold-load-affected) M-CODE path — pointing at
+Docker Desktop's host<->WSL2 port-forwarding rather than anything in this
+codebase. Not fixed here (nothing to fix in this repo) — noted as a rough
+edge of local dev on Windows for whoever next builds a real IDE client
+against this endpoint; a production deployment behind a normal reverse
+proxy on Linux is not expected to have this problem.
+
+**Live end-to-end verification (real Docker stack, real Postgres, real
+Redis, real Ollama, real Gitea, real Qdrant, no mocks):** seeded a real
+Gitea repo (`scripts/gitea_bootstrap.sh` — `awp-admin/awp-sample-svc`,
+containing `mathutils.py` and a `config_sample.py` with fake
+shaped-like-real AWS/GitHub credentials for secrets-scan testing) and
+linked it to a real seeded project (`projects.repo_slug`, migration
+`0013_codeassist` applied to the dev database). Dispatched a real
+`code_assist_session` chat-mode task over the Redis bus to the real `ops1`
+container for an employee allocated to that project (`EMP-00020`) — it
+correctly answered from real Gitea-indexed, real-Qdrant-retrieved
+`mathutils.py` content via a real M-CODE completion, with the response
+noting secrets were redacted from the context used (task
+`b85bede9-0101-44ad-966c-a203a6641e2b`, `status=done`). Live-dispatched the
+doc 05 §5.5 ACL-leakage acceptance test for an employee with no allocation
+to the project (`EMP-00001`) — got a `FAILED` result stating "zero code
+context returned" with no repo call or LLM call made, exactly per
+`nodes.py`'s designed ACL-check-before-context-fetch ordering. Directly
+verified `secrets_scan` (bypassing the agent, calling `mcp-projects`
+directly) against the seeded fake AWS key — it was found and redacted
+correctly. Live-dispatched `review` mode too (task
+`d26e6d9c-1658-4985-a16b-6456198b3eba`, a diff containing the same fake
+AWS key) — its `guided_json` structured-output completion took
+considerably longer than the chat-mode call (constrained/grammar decoding
+is visibly more expensive than free-text generation on this host's
+CPU-only Ollama, consistent with `DEVIATIONS.md` #1's flagged risk), but
+it did complete: the returned `CodeReview` correctly flagged
+`security: ["AWS_ACCESS_KEY_ID is hardcoded and exposed in the code...",
+...]` by category, without the raw redacted key ever appearing in the
+response — proof the secrets-scan-before-model-call ordering held for
+real, not just in the graph-level test double. All four live dispatches
+this sprint (chat, ACL-denial, direct `secrets_scan`, review) succeeded.
+
+711 tests passing at the time of this entry, ruff + mypy strict clean
+(one new test this sprint,
+`test_code_corpus_name_strips_slash_from_repo_slug`, regression-covering
+the Qdrant bug above; the rest of the count reflects Sprints 7-9's tests,
+which — like their code — were already written but not yet committed to
+git when this sprint's work began).

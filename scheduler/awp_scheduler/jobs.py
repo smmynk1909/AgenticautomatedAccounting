@@ -38,22 +38,38 @@ class JobSpec:
     schedule: dict[str, Any]
     intent: str
     to_agent: str
-    payload_fn: str
+    payload_fn: str | None = None
+    # Sprint 9: a job whose payload can't be known ahead of the tick (one
+    # `project_health_report` per *currently active* project) names an
+    # async resolver in `awp_scheduler.fanout.FAN_OUT_FNS` instead of a
+    # `payload_fn` — dispatches one TaskEnvelope per payload it returns,
+    # each independently deduped. Exactly one of `payload_fn`/`fan_out`
+    # must be set; `load_jobs` enforces that at config-load time.
+    fan_out: str | None = None
 
 
 def load_jobs(path: Path = JOBS_YAML) -> list[JobSpec]:
     with path.open("r", encoding="utf-8") as f:
         raw: list[dict[str, Any]] = yaml.safe_load(f) or []
-    return [
-        JobSpec(
-            name=j["name"],
-            schedule=j["schedule"],
-            intent=j["intent"],
-            to_agent=j["to_agent"],
-            payload_fn=j["payload_fn"],
+    jobs = []
+    for j in raw:
+        payload_fn = j.get("payload_fn")
+        fan_out = j.get("fan_out")
+        if bool(payload_fn) == bool(fan_out):
+            raise ValueError(
+                f"job {j['name']!r} must set exactly one of 'payload_fn'/'fan_out'"
+            )
+        jobs.append(
+            JobSpec(
+                name=j["name"],
+                schedule=j["schedule"],
+                intent=j["intent"],
+                to_agent=j["to_agent"],
+                payload_fn=payload_fn,
+                fan_out=fan_out,
+            )
         )
-        for j in raw
-    ]
+    return jobs
 
 
 def is_due(schedule: dict[str, Any], now: datetime) -> bool:

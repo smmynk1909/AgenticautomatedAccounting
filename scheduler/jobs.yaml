@@ -1,19 +1,17 @@
 # Cron -> TaskEnvelope dispatch — doc 02 §7 (owned by ORCH-0's scheduler
-# sidecar). `schedule` matches doc 02 §7's table exactly except the two rows
-# below that aren't included:
-#   - `project_health_report` (weekly): needs a project-listing capability
-#     to fan out per active project. No MCP tool exposes that yet (mcp-erp
-#     has no tools_projects.py; mcp-projects itself is Sprint 9) —
-#     dispatching with a fabricated project_id would be worse than not
-#     dispatching. Revisit once that capability exists.
+# sidecar). `schedule` matches doc 02 §7's table exactly except one row:
 #   - quarterly "training-needs refresh": not a registered intent in
 #     config/intents.yaml at all (plan_training is per-employee/team, not a
 #     standalone global-refresh intent) — nothing to dispatch to yet.
 #
-# `payload_fn` names a function in awp_scheduler.payloads that computes the
-# TaskEnvelope payload from `now` (e.g. the current month for run_payroll).
-# `to_agent` must match config/intents.yaml's `agent` for `intent` — checked
-# at dispatch time, not just here.
+# `payload_fn` names a function in awp_scheduler.payloads that computes a
+# single TaskEnvelope payload from `now` (e.g. the current month for
+# run_payroll). `fan_out` (Sprint 9) names an async resolver in
+# awp_scheduler.fanout instead, for jobs whose payload can't be known ahead
+# of the tick (e.g. one `project_health_report` per currently-active
+# project) — exactly one of the two must be set per job. `to_agent` must
+# match config/intents.yaml's `agent` for `intent` — checked at dispatch
+# time, not just here.
 
 - name: run_payroll_monthly
   schedule: { day: 25, hour: 9, minute: 0 }
@@ -38,6 +36,13 @@
   intent: timeline_risk_scan
   to_agent: OPS-1
   payload_fn: none
+
+- name: project_health_report_weekly
+  # doc 05 §2.2: "Weekly health report per active project (scheduled Mon)".
+  schedule: { weekday: 0, hour: 8, minute: 0 } # Monday
+  intent: project_health_report
+  to_agent: OPS-1
+  fan_out: active_projects
 
 - name: quarterly_review_pack
   schedule: { quarterly: true, hour: 9, minute: 0 }

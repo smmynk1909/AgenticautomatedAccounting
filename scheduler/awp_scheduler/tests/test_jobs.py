@@ -4,6 +4,7 @@ from datetime import datetime
 from pathlib import Path
 
 import pytest
+import yaml
 
 from awp_scheduler.jobs import _default_jobs_yaml, is_due, load_jobs
 
@@ -13,7 +14,42 @@ def test_load_jobs_reads_the_real_jobs_yaml() -> None:
     names = {j.name for j in jobs}
     assert "run_payroll_monthly" in names
     assert "quarterly_review_pack" in names
-    assert len(jobs) == 5
+    assert len(jobs) == 6
+
+
+def test_load_jobs_fan_out_job_has_no_payload_fn() -> None:
+    jobs = load_jobs()
+    job = next(j for j in jobs if j.name == "project_health_report_weekly")
+    assert job.fan_out == "active_projects"
+    assert job.payload_fn is None
+
+
+def test_load_jobs_rejects_job_with_neither_payload_fn_nor_fan_out(tmp_path: Path) -> None:
+    bad = tmp_path / "jobs.yaml"
+    job = {"name": "bad", "schedule": {"hour": 9, "minute": 0}, "intent": "x", "to_agent": "OPS-1"}
+    bad.write_text(yaml.safe_dump([job]))
+    with pytest.raises(ValueError, match="exactly one"):
+        load_jobs(bad)
+
+
+def test_load_jobs_rejects_job_with_both_payload_fn_and_fan_out(tmp_path: Path) -> None:
+    bad = tmp_path / "jobs.yaml"
+    bad.write_text(
+        yaml.safe_dump(
+            [
+                {
+                    "name": "bad",
+                    "schedule": {"hour": 9, "minute": 0},
+                    "intent": "x",
+                    "to_agent": "OPS-1",
+                    "payload_fn": "none",
+                    "fan_out": "active_projects",
+                }
+            ]
+        )
+    )
+    with pytest.raises(ValueError, match="exactly one"):
+        load_jobs(bad)
 
 
 def test_default_jobs_yaml_honors_env_override(

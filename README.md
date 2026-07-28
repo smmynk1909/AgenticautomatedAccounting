@@ -14,7 +14,11 @@ and the rest of `docs/00`–`12`. Deviations this build takes from those docs
 
 ## Status
 
-Sprints 1–6 complete and live-verified (`docs/12-SOLUTIONING-REPO.md` §5).
+Sprints 1–6, 9, 10 complete and live-verified; Sprint 7 code/tests/config
+complete and live container-verified, extraction F1 acceptance number
+under investigation (`DEVIATIONS.md` #18); Sprint 8 code/tests complete,
+live Docker verification pending (`DEVIATIONS.md` #19)
+(`docs/12-SOLUTIONING-REPO.md` §5).
 
 Sprints 1–2: shared library, DB schema + seed data, `mcp-audit`,
 `mcp-approvals`, `mcp-erp` (people/assets/tickets/tasks/dashboard/policies),
@@ -127,6 +131,124 @@ built regression test before it ever reached Docker — see `DEVIATIONS.md`
 
 527 tests passing (`uv run pytest -q`), ruff + mypy strict clean across
 every implemented package (`make test`).
+
+Sprint 7: `mcp-search` (search_kb hybrid retrieval, search_candidates,
+Qdrant-backed vectors + embed/cluster), `mcp-hrsourcing` (extract_resume via
+pdfplumber, normalize_profile via M-SMALL guided-JSON extraction into
+`CandidateProfile`, skill_normalize), and HR-1's Sourcer/ResumeAuditor/
+Shortlister (`source_candidates`, `audit_resume`, `shortlist_role` — the
+last gated on `shortlist_publish`, same optimistic-call/resume pattern as
+every other gated flow in this build). External sourcing connectors and
+the RoleProfile human-confirm step are scoped down — `DEVIATIONS.md` #18.
+
+Verified live: all three new containers (`mcp-search`, `mcp-hrsourcing`,
+`hr1`) plus `qdrant` built and joined the running stack at zero restarts.
+The doc 04 §5.1 acceptance test (extraction F1 ≥ 0.92 on a 50-resume
+labeled set, `scripts/resume_extraction_eval.py`) surfaced a real
+CPU-inference timeout bug (fixed — `DEVIATIONS.md` #18) and, once that was
+fixed, a genuine extraction-quality shortfall that has not yet been root-
+caused: early live results are far below the ≥0.92 bar. Flagged, not
+hidden — see `DEVIATIONS.md` #18 for the specifics gathered so far.
+
+Sprint 8: HR-1's NegotiationDesk (`prepare_negotiation` — deterministic
+`open`/`target`/`walk_away` off `salary_bands`, an LLM-drafted recruiter
+talk track, and an optional candidate-facing email draft gated on
+`offer_communication`) and TrainingPlanner (`plan_training` — presence-
+based skill-gap report vs. the employee's current role, matched against
+`training_catalog` via `search_kb`, gated on `training_plan`), plus
+`output_filter.py` (doc 09 §4.3's confidential-field denylist, checked in
+code before any candidate-facing draft reaches the approval gate). Chat-
+assist counter-offer negotiation, level-based/next-grade skill gaps, the
+quarterly training cron, and HR-1f TicketHandler remain out of scope —
+`DEVIATIONS.md` #19.
+
+Both doc 04 §5 acceptance tests named for this sprint are asserted directly:
+test 3 (a band-ceiling number in a draft is blocked by the output filter)
+in `agents/hr1/awp_agent_hr1/tests/test_output_filter.py`, and test 4
+(masked-cohort shortlist parity) in
+`agents/hr1/awp_agent_hr1/tests/test_bias_suite.py` — the latter runs the
+real `shortlister.rank_candidates` code against two cohorts identical on
+every scored dimension and differing only by name, proving parity holds
+structurally rather than by assertion. Live Docker verification (a real
+`prepare_negotiation`/`plan_training` dispatch over the Redis bus) is
+pending — `DEVIATIONS.md` #19.
+
+615 tests passing, ruff + mypy strict clean across every implemented
+package.
+
+Sprint 9: `mcp-erp` gained `tools_projects.py` (projects/milestones/
+allocations/work_logs CRUD — deliberately dumb, no business logic), a new
+`mcp-projects` server (delivery-issue tracking; repo indexing/CodeAssist
+tools are Sprint 10), and OPS-1's WorkTracker (`assign_employee_project`,
+gated on `allocation_change`), ProjectMonitor (`project_health_report` —
+deterministic burn/schedule variance + milestone-at-risk, an LLM-drafted
+narrative constrained to restate only computed facts, and an S1
+delivery-issue auto-escalation to Director on an overdue invoice-triggering
+milestone), and DeliveryRisk (`timeline_risk_scan`'s timeline radar). The
+scheduler gained fan-out support (`jobs.yaml`'s new `fan_out` field) so
+`project_health_report_weekly` can dispatch one task per active project —
+closing a gap `jobs.yaml` had flagged since Sprint 1. Migration 0005's
+`pg.UUID` columns (flagged but not yet fixed since Sprint 1 — DEVIATIONS.md
+#11) were fixed as part of building the first real Core mirror against
+them; a live, already-running dev database needed a separate forward
+migration (`0012`) rather than a destructive downgrade — DEVIATIONS.md #20.
+
+Verified live: `mcp-projects` and `ops1` joined the running stack at zero
+restarts. Created a real project/milestone/issue via `mcp-erp`/
+`mcp-projects`, then dispatched real `project_health_report` and
+`timeline_risk_scan` tasks over the Redis bus to the real `ops1` container.
+This surfaced (and fixed) a real bug no unit test had caught: MCP tool
+responses carry dates as JSON strings, not Python `date` objects, and
+OPS-1 is the first agent in this codebase to do date *arithmetic* on one —
+see DEVIATIONS.md #20. After the fix, both tasks completed for real (the
+health report took ~5.5 minutes — M-GEN narrative generation on this
+host's slow CPU inference, DEVIATIONS.md #18) and published real dashboard
+items with correctly-cited numbers.
+
+670 tests passing, ruff + mypy strict clean across every implemented
+package.
+
+Sprint 10: `mcp-projects` gained Gitea-backed repo tools (`list_repos`,
+`get_file`, `get_diff`, `index_repo`, `ci_status` — `search_code` is
+deliberately not implemented, doc 08 §8/`DEVIATIONS.md` #21), a
+`secrets_scan` tool (regex-based credential detection + redaction) and
+`suggest_patch` (a stored patch artifact for human application, never a
+direct commit — new `patch_artifacts` table, migration `0013_codeassist`,
+also adds `projects.repo_slug`). OPS-1 gained CodeAssist
+(`code_assist_session` — chat/review/generate/explain/refactor modes,
+per-project ACL via the existing `allocations` table, `output_filter`-style
+secrets-scan-before-context enforcement) and the gateway gained an
+OpenAI-compatible `POST /v1/chat/completions` IDE endpoint (doc 05 §2.4 —
+so IDE plugins like Continue can point at it directly), dispatching through
+the normal task-bus path but polling to a synchronous HTTP response since
+IDE clients expect one. `DEVIATIONS.md` #21 covers what's scoped down
+(external CI, streaming responses, real per-engineer session identity).
+
+Verified live: `mcp-projects` and `ops1` rebuilt and rejoined the running
+stack; a real `code_assist_session` chat-mode task was dispatched over the
+Redis bus against a real seeded Gitea repo (`awp-admin/awp-sample-svc`,
+`scripts/gitea_bootstrap.sh`) — `index_repo` pulled real file content from
+Gitea, `mcp-search.upsert_documents`/`search_kb` round-tripped it through a
+real Qdrant collection, and the agent's M-CODE (`qwen2.5-coder:7b-instruct`)
+call returned a real, correctly-grounded answer citing the seeded
+`mathutils.py` code (task `b85bede9-...`). The ACL-leakage acceptance test
+(doc 05 §5.5) was also live-dispatched: an employee with no allocation to
+the project got a zero-context `FAILED` result before any repo call was
+made. `review` mode was also live-dispatched against a diff containing a
+seeded fake AWS key — its `guided_json` structured output took
+considerably longer than chat mode's free-text generation (constrained
+decoding is visibly more expensive on this host's CPU-only Ollama), but
+returned a correct `CodeReview` flagging the hardcoded credential by
+category without the raw key ever appearing in the response, proving the
+secrets-scan-before-model-call ordering held for real. This surfaced and
+fixed two real bugs — a Qdrant collection-naming bug and an M-CODE
+cold-load timeout issue, both in `DEVIATIONS.md` #21 — and one new
+deviation (Docker Desktop's port-forwarding intermittently drops
+long-held HTTP connections to the new IDE endpoint on this host,
+`DEVIATIONS.md` #21).
+
+711 tests passing, ruff + mypy strict clean across every implemented
+package.
 
 ## Prerequisites
 

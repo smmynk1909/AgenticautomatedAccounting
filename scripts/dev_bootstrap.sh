@@ -32,6 +32,9 @@ for svc in postgres redis; do
   done
 done
 
+echo "==> gitea bootstrap (admin user, API token, seed repo — Sprint 10)"
+bash scripts/gitea_bootstrap.sh
+
 echo "==> alembic upgrade head"
 uv run alembic -c db/alembic.ini upgrade head
 

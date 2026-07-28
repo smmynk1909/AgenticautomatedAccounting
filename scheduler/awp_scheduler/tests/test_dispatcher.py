@@ -36,6 +36,13 @@ _WEEKLY_JOB = JobSpec(
     to_agent="OPS-1",
     payload_fn="none",
 )
+_FAN_OUT_JOB = JobSpec(
+    name="project_health_report_weekly",
+    schedule={"hour": 9, "minute": 0},  # daily in this fixture so _NOW matches it
+    intent="project_health_report",
+    to_agent="OPS-1",
+    fan_out="active_projects",
+)
 
 
 async def test_dispatch_due_jobs_only_dispatches_matching_jobs(
@@ -85,6 +92,37 @@ async def test_dispatch_due_jobs_is_idempotent_within_the_same_minute(
     assert first == ["dashboard_refresh_daily"]
     assert second == []
     assert len([c for c in mcp.calls if c[1] == "dispatch_task"]) == 1
+
+
+async def test_dispatch_due_jobs_fan_out_dispatches_one_per_active_project(
+    redis: FakeRedis, bus: TaskBus, registry: IntentRegistry
+) -> None:
+    mcp = FakeMCP(
+        handlers={
+            ("erp", "query_projects"): {
+                "projects": [{"id": "P1", "client": "A"}, {"id": "P2", "client": "B"}]
+            }
+        }
+    )
+    dispatched = await dispatch_due_jobs([_FAN_OUT_JOB], _NOW, mcp, bus, redis, registry)
+
+    assert dispatched == ["project_health_report_weekly"]
+    dispatch_calls = [c for c in mcp.calls if c[1] == "dispatch_task"]
+    assert len(dispatch_calls) == 2
+    project_ids = {
+        TaskEnvelope.model_validate(c[2]["envelope"]).payload["project_id"] for c in dispatch_calls
+    }
+    assert project_ids == {"P1", "P2"}
+
+
+async def test_dispatch_due_jobs_fan_out_with_no_active_projects_dispatches_nothing(
+    redis: FakeRedis, bus: TaskBus, registry: IntentRegistry
+) -> None:
+    mcp = FakeMCP(handlers={("erp", "query_projects"): {"projects": []}})
+    dispatched = await dispatch_due_jobs([_FAN_OUT_JOB], _NOW, mcp, bus, redis, registry)
+
+    assert dispatched == ["project_health_report_weekly"]
+    assert not [c for c in mcp.calls if c[1] == "dispatch_task"]
 
 
 async def test_reconcile_sweep_calls_reconcile_for_each_open_dag(

@@ -1,0 +1,25 @@
+[project]
+name = "awp-mcp-search"
+version = "0.1.0"
+description = "mcp-search: RAG & vector ops — hybrid search, embeddings, clustering (doc 08 §4)."
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "awp-shared",
+  "awp-mcp-base",
+  "redis>=5.0",
+  "fastapi>=0.115",
+  "uvicorn[standard]>=0.32",
+  "sqlalchemy[asyncio]>=2.0",
+  "qdrant-client>=1.12",
+  "httpx>=0.27",
+]
+
+[dependency-groups]
+dev = ["pytest>=8.0", "pytest-asyncio>=0.24", "fakeredis>=2.21", "aiosqlite>=0.20"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["awp_mcp_search"]

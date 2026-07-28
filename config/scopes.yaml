@@ -52,6 +52,17 @@ erp.push_dashboard_item: [erp.dashboard.write]
 erp.get_dashboard: [erp.dashboard.read]
 erp.get_policy: [erp.policies.read]
 erp.query_policies: [erp.policies.read]
+erp.get_role: [erp.people.read]
+erp.upsert_role: [erp.people.write]
+erp.get_project: [erp.projects.read]
+erp.query_projects: [erp.projects.read]
+erp.upsert_project: [erp.projects.write]
+erp.query_milestones: [erp.projects.read]
+erp.upsert_milestone: [erp.projects.write]
+erp.query_allocations: [erp.projects.read]
+erp.upsert_allocation: [erp.projects.write]
+erp.query_work_logs: [erp.projects.read]
+erp.upsert_work_log: [erp.projects.write]
 
 # --- mcp-finance (Sprint 5-6) ---
 finance.compute_payroll: [finance.write]
@@ -102,16 +113,25 @@ comms.poll_inbox: [comms.ingest]
 
 # --- mcp-hrsourcing (Sprint 7) ---
 hrsourcing.extract_resume: [hrsourcing.read]
+hrsourcing.normalize_profile: [hrsourcing.read]
 hrsourcing.connector_fetch: [hrsourcing.connectors]
 hrsourcing.skill_normalize: [hrsourcing.read]
 
 # --- mcp-projects (Sprint 9) ---
+# `projects.issues_crud` was a Sprint-1-era placeholder guessing at a tool
+# name before Sprint 9 actually built the server — replaced with the real
+# per-tool entries below, matching every other MCP's convention in this
+# file (scope_mw matches on exact tool name). The rest (list_repos through
+# secrets_scan) are still Sprint 10 (CodeAssist) placeholders, left as-is.
+projects.create_issue: [projects.write]
+projects.get_issue: [projects.read]
+projects.query_issues: [projects.read]
+projects.update_issue: [projects.write]
 projects.list_repos: [projects.read]
 projects.get_file: [projects.read]
 projects.get_diff: [projects.read]
 projects.index_repo: [projects.write]
 projects.search_code: [projects.read]
-projects.issues_crud: [projects.write]
 projects.ci_status: [projects.read]
 projects.suggest_patch: [projects.write]
 projects.secrets_scan: [projects.read]

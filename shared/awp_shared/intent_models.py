@@ -121,6 +121,13 @@ class CodeAssistSessionIn(BaseModel):
     project_id: str
     mode: str = Field(pattern="^(chat|review|generate|explain|refactor)$")
     input: str
+    # doc 05 §5.5's ACL-leakage acceptance test ("engineer without ACL to
+    # repo X gets zero code context from X") needs to know *which*
+    # engineer is asking — added here since `TaskEnvelope` itself carries
+    # no human-identity field (`from_agent` is an AgentId, not a person),
+    # same "the payload gains a field once a real requirement needs it"
+    # pattern as Sprint 8's `prepare_negotiation` gaining `draft_email`.
+    emp_id: str
 
 
 # --- Finance (doc 06) ---
