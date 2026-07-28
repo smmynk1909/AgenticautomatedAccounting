@@ -782,6 +782,37 @@ The throughput issue is a real inconvenience for live verification and
 production latency, not a hard blocker. Sprint 8's own live dispatch is
 still not done as of this writing, just less alarming than it looked.)
 
+**Second update, Sprint 11 (this session): three real attempts, all
+blocked before ever reaching HR-1's actual logic — a host issue, not a
+code issue.** A `prepare_negotiation` dispatch was attempted three times
+against the real running stack. Every attempt failed identically and
+early — either at `erp.dispatch_task` itself or at the first
+`get_task_status` poll — with `UpstreamError: audit.log_event
+unreachable: [Errno -3] Temporary failure in name resolution`, the same
+transient Docker-internal-DNS class already documented in `DEVIATIONS.md`
+#21/#23. None of the three attempts ever reached HR-1's own graph code
+(no crash, no log line from `hr1` beyond the earlier, unrelated
+`llm.transport_retry` entries from a prior attempt this same session).
+While investigating whether the DNS issue had cleared before a possible
+4th attempt, `docker ps` itself returned `500 Internal Server Error` from
+the Docker Desktop Linux Engine API — the daemon itself, not a single
+container's networking, had degraded into the same overloaded state that
+required a full Docker Desktop restart earlier in this session (see
+`DEVIATIONS.md` #23's Docker-strain discussion). Rather than push a 4th
+live-dispatch attempt against an already-failing daemon, this was stopped
+here. **This is a real, repeated finding about this specific host's
+capacity under many contiguous hours of heavy container/LLM-load activity
+across one very long session — not a defect in HR-1, `prepare_negotiation`,
+or `plan_training`'s code**, all of which passed their full unit/graph-level
+suite (unchanged since the last update above) and, earlier in this exact
+session, this same class of dispatch succeeded repeatedly for other agents
+(Keycloak's real login flow, the red-team suite's `cross_scope` case,
+`codeassist_eval.py`'s real M-CODE completions, `backup.sh`/
+`restore_drill.sh`'s real Postgres round-trip) when the host had more
+headroom. Live-verifying Sprint 8's dispatch remains a genuine pending
+item — best attempted in a fresh session, or immediately after a Docker
+Desktop restart, rather than appended onto a session already this long.
+
 ## 20. Sprint 9 — mcp-projects + OPS-1 (tracker, monitor, risk)
 
 **Migration 0005 (`projects`/`milestones`/`allocations`/`work_logs`) still
@@ -882,6 +913,17 @@ flow and the S1-escalation branch specifically were not live-dispatched
 this sprint (both are graph-tested, and every MCP call the escalation
 branch makes — `create_issue`, `notify_user`, `push_dashboard_item` — was
 independently live-verified either directly or in an earlier sprint).
+
+**Update, Sprint 11 (this session): still not live-dispatched, deliberately
+not attempted this round.** Planned as the next live-verification target
+after Sprint 8's, but the Docker Desktop daemon itself started returning
+`500 Internal Server Error` on `docker ps` while attempting Sprint 8's
+dispatch (see #19's second update, same session) — the same
+already-once-required-a-restart strain pattern. Rather than start a new
+live dispatch against a daemon already showing that signature, this was
+intentionally skipped this session. Still a genuine pending item, same
+recommendation as #19: a fresh session or a fresh Docker Desktop restart,
+not appended onto this one.
 
 670 tests passing at the time of this entry.
 
