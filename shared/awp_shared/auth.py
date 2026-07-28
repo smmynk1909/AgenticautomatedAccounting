@@ -1,11 +1,14 @@
 """Principals, service/user JWTs, and cryptographic HITL approval tokens.
 
-Contract per doc 11 §1.2. **DEVIATIONS.md #2**: `verify_jwt` checks a local
-HS256 secret instead of a Keycloak JWKS. Every other function's signature and
-behavior — including `verify_approval_token`'s structural, non-bypassable
-HITL enforcement (doc 08 §0, AD-07) — matches the doc contract exactly, so
-swapping in Keycloak later only touches this module's key-source, never a
-caller.
+Contract per doc 11 §1.2. **Sprint 11, DEVIATIONS.md #22**: `verify_jwt` now
+validates real Keycloak-issued (RS256) human session tokens via a cached
+JWKS client, exactly as doc 11 §1.2's `# Keycloak JWKS cached` comment
+specifies — DEVIATIONS.md #2's HS256-local-secret placeholder is gone for
+*human* tokens. Service (agent) tokens still use the local HS256 scheme
+(`mint_service_jwt` is unchanged; doc 11 §1.2's own pseudocode never gives
+it a different signature either) — `verify_jwt` picks the right validation
+path per-token by its JWT header `alg`, so every caller (`Principal` shape,
+`require_scopes`, `verify_approval_token`'s HITL enforcement) is unchanged.
 """
 
 from __future__ import annotations
@@ -18,12 +21,14 @@ from datetime import UTC, datetime
 from typing import Any, Literal
 
 import jwt
+from jwt import PyJWKClient
 from pydantic import BaseModel
 from redis.asyncio import Redis
 
 from awp_shared.errors import ApprovalRequiredError, PermissionDeniedError
 
 ALGORITHM = "HS256"
+KEYCLOAK_ALGORITHM = "RS256"
 
 
 def _issuer() -> str:
@@ -51,6 +56,64 @@ def _approval_secret() -> str:
 
 def _utcnow() -> datetime:
     return datetime.now(UTC)
+
+
+def keycloak_realm_url() -> str:
+    """Network-reachable base for the gateway's own outbound calls to
+    Keycloak (JWKS fetch, token exchange) — NOT necessarily the string a
+    token's `iss` claim contains (see `keycloak_issuer` below). Behind
+    Docker these two are genuinely different addresses for the same
+    realm; conflating them was a real, live-verified bug (DEVIATIONS.md
+    #22) — a token exchanged via one path still carries the *authorization*
+    step's hostname in `iss`, not the token-exchange call's own path, so
+    validating `iss` against this network-address value fails closed on
+    every otherwise-valid token."""
+    base = os.environ.get("KEYCLOAK_URL")
+    if not base:
+        raise RuntimeError(
+            "KEYCLOAK_URL not set — required to verify a Keycloak-issued (RS256) "
+            "token; a service (HS256) token doesn't need it"
+        )
+    realm = os.environ.get("KEYCLOAK_REALM", "awp")
+    return f"{base.rstrip('/')}/realms/{realm}"
+
+
+def keycloak_issuer() -> str:
+    """The exact `iss` string Keycloak embeds in this realm's tokens —
+    fixed by whatever hostname the *browser* used to reach Keycloak's
+    `/auth` endpoint (`KEYCLOAK_PUBLIC_URL`), live-verified to persist
+    through to the token-exchange response regardless of which address the
+    backend itself used to make that call. Falls back to `keycloak_realm_url()`
+    when `KEYCLOAK_PUBLIC_URL` isn't set — the common case (tests, a
+    non-Docker dev setup) where there's only one address for Keycloak and
+    this split doesn't matter."""
+    public_base = os.environ.get("KEYCLOAK_PUBLIC_URL")
+    if not public_base:
+        return keycloak_realm_url()
+    realm = os.environ.get("KEYCLOAK_REALM", "awp")
+    return f"{public_base.rstrip('/')}/realms/{realm}"
+
+
+_jwks_client: PyJWKClient | None = None
+_jwks_client_base: str | None = None
+
+
+def _get_jwks_client() -> PyJWKClient:
+    """Cached per doc 11 §1.2 (`# Keycloak JWKS cached`) — `PyJWKClient`
+    caches keys by `kid` internally and only re-fetches on a cache miss, so
+    a Keycloak realm-key rotation is picked up automatically without a
+    restart. Fetches from `keycloak_realm_url()` (network-reachable), not
+    `keycloak_issuer()` — the *keys* live at whatever address can actually
+    be connected to; only the `iss` *string comparison* needs the
+    public-facing value. Rebuilt (not just re-cached) if that address ever
+    changes within one process — only relevant to tests, which patch it
+    per-case."""
+    global _jwks_client, _jwks_client_base
+    base = keycloak_realm_url()
+    if _jwks_client is None or _jwks_client_base != base:
+        _jwks_client = PyJWKClient(f"{base}/protocol/openid-connect/certs", cache_keys=True)
+        _jwks_client_base = base
+    return _jwks_client
 
 
 class Principal(BaseModel):
@@ -106,6 +169,14 @@ def mint_user_jwt(user_id: str, roles: list[str], ttl_s: int = 8 * 3600) -> str:
 
 def verify_jwt(token: str) -> Principal:
     try:
+        header = jwt.get_unverified_header(token)
+    except jwt.PyJWTError as exc:
+        raise PermissionDeniedError(f"invalid or expired token: {exc}") from exc
+
+    if header.get("alg") == KEYCLOAK_ALGORITHM:
+        return _verify_keycloak_jwt(token)
+
+    try:
         data = jwt.decode(token, _service_secret(), algorithms=[ALGORITHM], issuer=_issuer())
     except jwt.PyJWTError as exc:
         raise PermissionDeniedError(f"invalid or expired token: {exc}") from exc
@@ -114,6 +185,38 @@ def verify_jwt(token: str) -> Principal:
         kind=data.get("kind", "agent"),
         roles=data.get("roles", []),
         scopes=data.get("scopes", []),
+    )
+
+
+def _verify_keycloak_jwt(token: str) -> Principal:
+    try:
+        signing_key = _get_jwks_client().get_signing_key_from_jwt(token)
+        data = jwt.decode(
+            token,
+            signing_key.key,
+            algorithms=[KEYCLOAK_ALGORITHM],
+            issuer=keycloak_issuer(),
+            # Keycloak's default access-token audience is client-dependent
+            # (`account`, or a client-configured value) and this build has
+            # no audience mapper configured on `awp-gateway` — verifying
+            # signature + issuer + expiry is the real security boundary
+            # here (a forged/expired token still fails), so `aud` is
+            # intentionally not checked. Revisit if a second confidential
+            # client is ever added to the realm and audience confusion
+            # between them becomes a real risk.
+            options={"verify_aud": False},
+        )
+    except jwt.PyJWTError as exc:
+        raise PermissionDeniedError(f"invalid or expired token: {exc}") from exc
+    return Principal(
+        # `preferred_username` (e.g. "dev-ceo"), not Keycloak's opaque `sub`
+        # UUID — every existing caller of `Principal.sub` (audit log rows,
+        # RBAC checks) expects the same readable id `mint_user_jwt` used to
+        # produce, and this keeps that contract intact.
+        sub=data.get("preferred_username", data["sub"]),
+        kind="user",
+        roles=data.get("realm_access", {}).get("roles", []),
+        scopes=[],
     )
 
 

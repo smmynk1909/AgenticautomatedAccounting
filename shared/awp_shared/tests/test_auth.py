@@ -2,8 +2,11 @@ from datetime import UTC, datetime
 
 import jwt
 import pytest
+from cryptography.hazmat.primitives.asymmetric import rsa
 from fakeredis.aioredis import FakeRedis
+from jwt import PyJWKClient
 
+import awp_shared.auth as auth_mod
 from awp_shared.auth import (
     canonical_payload_hash,
     mint_approval_token,
@@ -18,6 +21,41 @@ from awp_shared.errors import ApprovalRequiredError, PermissionDeniedError
 
 def _redis() -> FakeRedis:
     return FakeRedis(decode_responses=True)
+
+
+def _keycloak_token(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    claims_override: dict | None = None,
+    signing_key: rsa.RSAPublicKey | None = None,
+) -> str:
+    """Signs a Keycloak-shaped RS256 token with a throwaway keypair and
+    monkeypatches `PyJWKClient.get_signing_key_from_jwt` to hand back its
+    public half — no real Keycloak/network needed, matching every other
+    Docker-backed dependency's fake-in-unit-tests convention in this repo."""
+    monkeypatch.setenv("KEYCLOAK_URL", "http://keycloak.test:8080")
+    monkeypatch.setenv("KEYCLOAK_REALM", "awp")
+    private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    public_key = private_key.public_key()
+    now = int(datetime.now(UTC).timestamp())
+    claims = {
+        "sub": "11111111-1111-1111-1111-111111111111",
+        "preferred_username": "dev-ceo",
+        "realm_access": {"roles": ["ceo", "default-roles-awp"]},
+        "iss": "http://keycloak.test:8080/realms/awp",
+        "iat": now,
+        "exp": now + 900,
+    }
+    claims.update(claims_override or {})
+    token = jwt.encode(claims, private_key, algorithm="RS256", headers={"kid": "test-kid"})
+
+    class _FakeSigningKey:
+        key = signing_key or public_key
+
+    monkeypatch.setattr(
+        PyJWKClient, "get_signing_key_from_jwt", lambda self, t: _FakeSigningKey()
+    )
+    return token
 
 
 def test_service_jwt_round_trip() -> None:
@@ -45,6 +83,74 @@ def test_verify_jwt_rejects_wrong_issuer(monkeypatch: pytest.MonkeyPatch) -> Non
     token = mint_service_jwt("FIN-1", ["finance.read"])
     monkeypatch.setenv("AWP_JWT_ISSUER", "someone-else")
     with pytest.raises(PermissionDeniedError):
+        verify_jwt(token)
+
+
+def test_keycloak_jwt_round_trip(monkeypatch: pytest.MonkeyPatch) -> None:
+    token = _keycloak_token(monkeypatch)
+    principal = verify_jwt(token)
+    assert principal.sub == "dev-ceo"  # preferred_username, not the opaque sub UUID
+    assert principal.kind == "user"
+    assert "ceo" in principal.roles
+    assert principal.scopes == []
+
+
+def test_keycloak_jwt_accepts_public_issuer_when_split_from_backend_url(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Live-verified real bug (DEVIATIONS.md #22): a real Keycloak token's
+    # `iss` reflects the *public* hostname (what a browser used for
+    # /auth), not KEYCLOAK_URL (what the backend uses to reach Keycloak's
+    # APIs) — a token must validate against KEYCLOAK_PUBLIC_URL even
+    # though KEYCLOAK_URL points somewhere else entirely.
+    token = _keycloak_token(monkeypatch, claims_override={"iss": "http://public-kc.test/realms/awp"})
+    monkeypatch.setenv("KEYCLOAK_PUBLIC_URL", "http://public-kc.test")
+    principal = verify_jwt(token)
+    assert principal.sub == "dev-ceo"
+
+
+def test_keycloak_jwt_rejects_backend_url_as_issuer_when_split_configured(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # The inverse of the above: once KEYCLOAK_PUBLIC_URL is set, a token
+    # whose `iss` is the *backend* URL (KEYCLOAK_URL) must NOT validate —
+    # that would silently reintroduce the bug this split fixes.
+    token = _keycloak_token(monkeypatch)  # iss defaults to KEYCLOAK_URL's value
+    monkeypatch.setenv("KEYCLOAK_PUBLIC_URL", "http://public-kc.test")
+    with pytest.raises(PermissionDeniedError):
+        verify_jwt(token)
+
+
+def test_keycloak_jwt_rejects_wrong_signing_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Signed with one keypair, but the JWKS lookup (forged/compromised,
+    # or simply a stale cached key after rotation) hands back a different
+    # one — must fail closed, not silently accept.
+    other_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    token = _keycloak_token(monkeypatch, signing_key=other_key.public_key())
+    with pytest.raises(PermissionDeniedError):
+        verify_jwt(token)
+
+
+def test_keycloak_jwt_rejects_wrong_issuer(monkeypatch: pytest.MonkeyPatch) -> None:
+    token = _keycloak_token(monkeypatch, claims_override={"iss": "http://not-us:8080/realms/awp"})
+    with pytest.raises(PermissionDeniedError):
+        verify_jwt(token)
+
+
+def test_keycloak_jwt_rejects_expired(monkeypatch: pytest.MonkeyPatch) -> None:
+    now = int(datetime.now(UTC).timestamp())
+    token = _keycloak_token(monkeypatch, claims_override={"iat": now - 3600, "exp": now - 60})
+    with pytest.raises(PermissionDeniedError):
+        verify_jwt(token)
+
+
+def test_verify_jwt_requires_keycloak_url_for_rs256_token(monkeypatch: pytest.MonkeyPatch) -> None:
+    # An RS256-header token with KEYCLOAK_URL unset must raise a clear config
+    # error, not a confusing signature-verification failure.
+    monkeypatch.delenv("KEYCLOAK_URL", raising=False)
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    token = jwt.encode({"sub": "x"}, key, algorithm="RS256")
+    with pytest.raises(RuntimeError, match="KEYCLOAK_URL"):
         verify_jwt(token)
 
 
@@ -119,8 +225,6 @@ async def test_approval_token_rejects_wrong_gate() -> None:
 
 @pytest.mark.asyncio
 async def test_approval_token_rejects_expired(monkeypatch: pytest.MonkeyPatch) -> None:
-    import awp_shared.auth as auth_mod
-
     redis = _redis()
     payload = {"a": 1}
     now = int(datetime.now(UTC).timestamp())

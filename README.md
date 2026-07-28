@@ -17,8 +17,11 @@ and the rest of `docs/00`–`12`. Deviations this build takes from those docs
 Sprints 1–6, 9, 10 complete and live-verified; Sprint 7 code/tests/config
 complete and live container-verified, extraction F1 acceptance number
 under investigation (`DEVIATIONS.md` #18); Sprint 8 code/tests complete,
-live Docker verification pending (`DEVIATIONS.md` #19)
-(`docs/12-SOLUTIONING-REPO.md` §5).
+live Docker verification pending (`DEVIATIONS.md` #19); Sprint 11 in
+progress — Keycloak swap-in for human auth done and live-verified
+(`DEVIATIONS.md` #22), its other six pieces (observability, backup/
+restore, red-team, load test, payroll shadow cycles, runbooks) not yet
+started (`docs/12-SOLUTIONING-REPO.md` §5).
 
 Sprints 1–2: shared library, DB schema + seed data, `mcp-audit`,
 `mcp-approvals`, `mcp-erp` (people/assets/tickets/tasks/dashboard/policies),
@@ -248,6 +251,38 @@ long-held HTTP connections to the new IDE endpoint on this host,
 `DEVIATIONS.md` #21).
 
 711 tests passing, ruff + mypy strict clean across every implemented
+package.
+
+Sprint 11 (in progress — doc 12 §5's hardening sprint spans roughly seven
+independent sub-builds; only the first is done so far): Keycloak swap-in
+for human auth. `deploy/keycloak/realm-export.json` (roles matching
+`config/dev_users.yaml`, 9 dev users, a confidential `awp-gateway` client)
+imports into a new `keycloak` service; `verify_jwt` now branches on JWT
+header `alg` (`RS256` validates against a live, cached Keycloak JWKS;
+`HS256` keeps the existing local-secret path for agent service tokens,
+unchanged per doc 11 §1.2); the gateway gained a real Authorization
+Code + PKCE flow (`GET /api/auth/login` / `GET /api/auth/callback`),
+alongside — not yet replacing — the existing dev-login route
+(`DEVIATIONS.md` #22 explains why both coexist for now).
+
+Verified live: a full Authorization Code + PKCE login, scripted end to
+end with `curl` (real Keycloak login page, real credential POST, real
+redirect chain) against the real running stack, produced a real Keycloak
+access token; that exact token was accepted by the *actual running
+gateway container's* `verify_jwt` and, sent as a real bearer token,
+returned a real `200` with real computed payroll data from
+`GET /api/payroll/runs/2026-07` — the whole chain (Keycloak issues a
+token → gateway exchanges it → `verify_jwt` validates it against the live
+JWKS → gateway RBAC accepts the principal) proven end to end, not just
+per-component. This surfaced and fixed two real bugs — a `VERIFY_PROFILE`
+required-action block (the realm export was missing `email`/`firstName`/
+`lastName` per user) and an issuer-mismatch bug (`KEYCLOAK_URL` was doing
+double duty as both the gateway's own network address for calling
+Keycloak *and* the string validated against a token's `iss` claim, which
+turned out to be two genuinely different values behind Docker) — both in
+`DEVIATIONS.md` #22.
+
+725 tests passing, ruff + mypy strict clean across every implemented
 package.
 
 ## Prerequisites

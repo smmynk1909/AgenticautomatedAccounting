@@ -17,6 +17,7 @@ from awp_gateway.routers import (
     codeassist,
     dashboard,
     dev_auth,
+    oidc_auth,
     payroll,
     tasks,
     tickets,
@@ -47,6 +48,7 @@ def create_app(state: GatewayState) -> FastAPI:
         )
 
     app.include_router(dev_auth.router)
+    app.include_router(oidc_auth.router)
     app.include_router(chat.router)
     app.include_router(tasks.router)
     app.include_router(tickets.router)

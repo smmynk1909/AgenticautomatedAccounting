@@ -118,6 +118,33 @@ services:
       timeout: 5s
       retries: 20
 
+  keycloak:
+    # Sprint 11 — DEVIATIONS.md #22: real OIDC for human sessions, replacing
+    # dev-JWT (DEVIATIONS.md #2). `start-dev` (not the doc's plain `start`)
+    # is Keycloak's own local-dev mode — HTTP allowed, no reverse-proxy TLS
+    # termination required — matching every other trimmed-for-local-dev
+    # service in this compose file. `--import-realm` loads
+    # `deploy/keycloak/realm-export.json` (the `awp` realm, its roles, dev
+    # users, and the `awp-gateway` client) once at first boot only — it does
+    # NOT re-sync the file into an already-created realm on restart; changes
+    # to the file need a fresh `keycloakdata` volume to take effect again.
+    image: quay.io/keycloak/keycloak:26.0
+    restart: unless-stopped
+    command: start-dev --import-realm
+    environment:
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN_USER:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-dev-only-change-me}
+    volumes:
+      - keycloakdata:/opt/keycloak/data
+      - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
+    ports:
+      - "8080:8080"
+    # No CMD-SHELL healthcheck: the official image ships no curl/wget, and
+    # `/dev/tcp` is a bash-ism this image's shell doesn't support (same
+    # class of gap as `qdrant` above). Dependents use
+    # `condition: service_started` and the gateway's own OIDC calls fail
+    # loudly (UpstreamError) if Keycloak isn't actually ready yet.
+
   mcp-audit:
     build:
       context: ..
@@ -362,6 +389,8 @@ services:
         condition: service_started
       mcp-finance:
         condition: service_started
+      keycloak:
+        condition: service_started
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       REDIS_URL: redis://redis:6379/0
@@ -372,6 +401,22 @@ services:
       MCP_ERP_URL: http://mcp-erp:8000
       MCP_FINANCE_URL: http://mcp-finance:8000
       AWP_ENV: ${AWP_ENV}
+      # KEYCLOAK_URL is deliberately NOT the plain `http://keycloak:8080`
+      # every other container-to-container URL in this file uses — the
+      # gateway's own outbound calls (JWKS fetch, token exchange) and every
+      # *verification* of a token's `iss` claim must resolve the exact same
+      # way, or Keycloak's request-derived issuer won't match what
+      # `keycloak_issuer()` expects (see DEVIATIONS.md #22 for the full
+      # reasoning — live-verified, not guessed). `host.docker.internal`
+      # (Docker Desktop's host-loopback DNS entry, Windows/Mac only) reaches
+      # the *same* published Keycloak port a host-side browser/curl call
+      # does via `localhost:8080`, keeping both paths issuer-consistent.
+      KEYCLOAK_URL: http://host.docker.internal:8080
+      KEYCLOAK_PUBLIC_URL: ${KEYCLOAK_PUBLIC_URL:-http://localhost:8080}
+      KEYCLOAK_REALM: ${KEYCLOAK_REALM:-awp}
+      KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID:-awp-gateway}
+      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET}
+      KEYCLOAK_REDIRECT_URI: ${KEYCLOAK_REDIRECT_URI:-http://localhost:8000/api/auth/callback}
     ports:
       - "8000:8000"
 
@@ -598,4 +643,5 @@ volumes:
   ollamadata:
   qdrantdata:
   giteadata:
+  keycloakdata:
   audit_spool:

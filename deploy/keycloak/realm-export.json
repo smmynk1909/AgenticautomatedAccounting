@@ -1,0 +1,142 @@
+{
+  "realm": "awp",
+  "enabled": true,
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": false,
+  "duplicateEmailsAllowed": false,
+  "accessTokenLifespan": 900,
+  "roles": {
+    "realm": [
+      { "name": "ceo" },
+      { "name": "director" },
+      { "name": "manager" },
+      { "name": "finance" },
+      { "name": "finance_head" },
+      { "name": "hr" },
+      { "name": "hr_head" },
+      { "name": "admin" },
+      { "name": "admin_head" },
+      { "name": "support" },
+      { "name": "support_lead" },
+      { "name": "recruiter" },
+      { "name": "employee" }
+    ]
+  },
+  "users": [
+    {
+      "username": "dev-ceo",
+      "enabled": true,
+      "email": "dev-ceo@awp.local",
+      "emailVerified": true,
+      "firstName": "Dev",
+      "lastName": "Ceo",
+      "credentials": [{ "type": "password", "value": "dev-only-not-for-prod", "temporary": false }],
+      "requiredActions": [],
+      "realmRoles": ["ceo"]
+    },
+    {
+      "username": "dev-director",
+      "enabled": true,
+      "email": "dev-director@awp.local",
+      "emailVerified": true,
+      "firstName": "Dev",
+      "lastName": "Director",
+      "credentials": [{ "type": "password", "value": "dev-only-not-for-prod", "temporary": false }],
+      "requiredActions": [],
+      "realmRoles": ["director"]
+    },
+    {
+      "username": "dev-finance-head",
+      "enabled": true,
+      "email": "dev-finance-head@awp.local",
+      "emailVerified": true,
+      "firstName": "Dev",
+      "lastName": "FinanceHead",
+      "credentials": [{ "type": "password", "value": "dev-only-not-for-prod", "temporary": false }],
+      "requiredActions": [],
+      "realmRoles": ["finance_head", "finance"]
+    },
+    {
+      "username": "dev-hr-head",
+      "enabled": true,
+      "email": "dev-hr-head@awp.local",
+      "emailVerified": true,
+      "firstName": "Dev",
+      "lastName": "HrHead",
+      "credentials": [{ "type": "password", "value": "dev-only-not-for-prod", "temporary": false }],
+      "requiredActions": [],
+      "realmRoles": ["hr_head", "hr"]
+    },
+    {
+      "username": "dev-admin-head",
+      "enabled": true,
+      "email": "dev-admin-head@awp.local",
+      "emailVerified": true,
+      "firstName": "Dev",
+      "lastName": "AdminHead",
+      "credentials": [{ "type": "password", "value": "dev-only-not-for-prod", "temporary": false }],
+      "requiredActions": [],
+      "realmRoles": ["admin_head", "admin"]
+    },
+    {
+      "username": "dev-support-lead",
+      "enabled": true,
+      "email": "dev-support-lead@awp.local",
+      "emailVerified": true,
+      "firstName": "Dev",
+      "lastName": "SupportLead",
+      "credentials": [{ "type": "password", "value": "dev-only-not-for-prod", "temporary": false }],
+      "requiredActions": [],
+      "realmRoles": ["support_lead", "support"]
+    },
+    {
+      "username": "dev-manager",
+      "enabled": true,
+      "email": "dev-manager@awp.local",
+      "emailVerified": true,
+      "firstName": "Dev",
+      "lastName": "Manager",
+      "credentials": [{ "type": "password", "value": "dev-only-not-for-prod", "temporary": false }],
+      "requiredActions": [],
+      "realmRoles": ["manager"]
+    },
+    {
+      "username": "dev-recruiter",
+      "enabled": true,
+      "email": "dev-recruiter@awp.local",
+      "emailVerified": true,
+      "firstName": "Dev",
+      "lastName": "Recruiter",
+      "credentials": [{ "type": "password", "value": "dev-only-not-for-prod", "temporary": false }],
+      "requiredActions": [],
+      "realmRoles": ["recruiter", "hr"]
+    },
+    {
+      "username": "dev-employee",
+      "enabled": true,
+      "email": "dev-employee@awp.local",
+      "emailVerified": true,
+      "firstName": "Dev",
+      "lastName": "Employee",
+      "credentials": [{ "type": "password", "value": "dev-only-not-for-prod", "temporary": false }],
+      "requiredActions": [],
+      "realmRoles": ["employee"]
+    }
+  ],
+  "clients": [
+    {
+      "clientId": "awp-gateway",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "dev-only-gateway-secret-change-me",
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "redirectUris": ["http://localhost:8000/api/auth/callback"],
+      "webOrigins": ["http://localhost:5173"],
+      "fullScopeAllowed": true
+    }
+  ]
+}

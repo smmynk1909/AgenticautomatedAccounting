@@ -1022,3 +1022,131 @@ this sprint (chat, ACL-denial, direct `secrets_scan`, review) succeeded.
 the Qdrant bug above; the rest of the count reflects Sprints 7-9's tests,
 which — like their code — were already written but not yet committed to
 git when this sprint's work began).
+
+## 22. Sprint 11 (in progress) — Keycloak swap-in for human auth
+
+Sprint 11's doc 12 §5 DoD ("NFR table (10§6) fully verified; 2 clean
+payroll shadow cycles") spans roughly seven independent sub-builds:
+Keycloak, an observability stack (Prometheus/Grafana/Loki/otel-collector,
+`DEVIATIONS.md` #3's table), backup/restore + a real restore drill, a
+red-team suite (`evals/`, still an empty directory), a load test (k6),
+two real payroll shadow-diff cycles, and runbooks + the doc 12 §6 go-live
+checklist. This entry covers only the first of those — the rest have not
+been started.
+
+**Scope: human auth only.** `mint_service_jwt`/agent-to-MCP service JWTs
+are unchanged — still local HS256, matching doc 11 §1.2's own LLD
+pseudocode, which never gives `mint_service_jwt` a different signature
+even after "Keycloak JWKS cached" is added to `verify_jwt`. `verify_jwt`
+now branches on the JWT header's `alg`: `RS256` (a real Keycloak token)
+validates against a cached JWKS client; `HS256` (a service token, or a
+dev-login human token — see below) keeps the existing local-secret path
+unchanged. Every caller (`Principal` shape, `require_scopes`,
+`verify_approval_token`'s HITL enforcement) needed no changes at all —
+exactly the swap DEVIATIONS.md #2 predicted ("touches only this module's
+key-source, never a caller").
+
+**New infra**: `deploy/keycloak/realm-export.json` (a hand-written `awp`
+realm — 13 roles matching `config/dev_users.yaml`'s role set, 9 dev users
+with a fixed dev-only password, and a confidential `awp-gateway` client)
+imported once via `quay.io/keycloak/keycloak:26.0`'s `start-dev
+--import-realm` into `deploy/docker-compose.dev.yml`'s new `keycloak`
+service. `gateway/awp_gateway/routers/oidc_auth.py` implements a real
+Authorization Code + PKCE flow (`GET /api/auth/login`,
+`GET /api/auth/callback`) — the gateway never mints its own session token
+for a human anymore via this path; it just relays Keycloak's real access
+token back to the caller, and `verify_jwt` validates that token directly
+against the live JWKS.
+
+**Two real bugs found and fixed by live verification (neither would have
+been caught by review or by a mocked-Keycloak unit test):**
+
+- **`VERIFY_PROFILE` required action blocked every login.** The first
+  full login attempt correctly authenticated (`dev-ceo` / the seeded
+  password), but Keycloak redirected to a `VERIFY_PROFILE` required-action
+  page instead of back to the callback — the realm-export's users had only
+  `username`/`credentials`/`realmRoles`, no `email`/`firstName`/
+  `lastName`, and Keycloak's default realm policy requires a complete
+  profile before finishing a login. Fixed by adding those three fields to
+  all 9 users in `realm-export.json` and reimporting into a fresh
+  `keycloakdata` volume (`--import-realm` only imports once per volume —
+  editing the file and restarting the *same* volume does nothing).
+- **Issuer mismatch: a real, valid Keycloak token was rejected by
+  `verify_jwt` with `InvalidIssuerError`.** This was the harder one.
+  `KEYCLOAK_URL` was originally used for *two* purposes at once inside the
+  gateway container: (a) the actual network address for the gateway's own
+  outbound calls to Keycloak (JWKS fetch, token exchange — needs
+  `host.docker.internal:8080`, since `localhost` inside the gateway
+  container means the gateway container itself, and Keycloak is a
+  *different* container), and (b) the string `verify_jwt` compares a
+  token's `iss` claim against. Live-verified (two direct `curl` calls to
+  the *same* running Keycloak realm's discovery endpoint, one via
+  `localhost:8080` from the host and one via `host.docker.internal:8080`
+  from inside a container) that Keycloak's default hostname behavior
+  derives the realm's public URLs from *whichever address the request
+  used*, and — the actually surprising part — that a token's `iss` is
+  fixed by the address used for the *authorization* (`/auth`) step, not
+  by whatever address the backend later used for the *token exchange*
+  (`/token`) call. Since the browser always reaches Keycloak via
+  `localhost:8080` (the only address a real host browser can use) while
+  the gateway container's own calls go via `host.docker.internal:8080`,
+  every real token's `iss` came out as `http://localhost:8080/realms/awp`
+  — which never matched `keycloak_issuer()`'s old value of
+  `http://host.docker.internal:8080/realms/awp`, so `verify_jwt` failed
+  closed on every otherwise-valid token. Fixed by splitting the one
+  overloaded function into two in `shared/awp_shared/auth.py`:
+  `keycloak_realm_url()` (reads `KEYCLOAK_URL`, used only for the JWKS
+  fetch and the token-exchange endpoint URL — network-reachability
+  concern) and `keycloak_issuer()` (reads `KEYCLOAK_PUBLIC_URL`, falling
+  back to `KEYCLOAK_URL` when unset, used only for the `issuer=` check in
+  `jwt.decode` — identity concern). `gateway/awp_gateway/routers/
+  oidc_auth.py`'s `/login` redirect and `/callback`'s token-exchange POST
+  were updated to use the matching one of the two. Regression tests added
+  to both `shared/awp_shared/tests/test_auth.py` and `gateway/
+  awp_gateway/tests/test_oidc_auth.py` assert the split holds (a token
+  whose `iss` is the public URL validates; one whose `iss` is the backend
+  URL is rejected once `KEYCLOAK_PUBLIC_URL` is configured).
+
+**Live end-to-end verification (real Docker stack, real Keycloak, no
+mocks): a complete browser-equivalent Authorization Code + PKCE login,
+scripted with `curl` (cookie jar carried across every hop, Keycloak's
+login-form `action` URL scraped and POSTed to directly).** `GET
+/api/auth/login` → real Keycloak login page → POST `dev-ceo` / the seeded
+password → real 302 straight to `/api/auth/callback?code=...` (no
+`VERIFY_PROFILE` detour) → the gateway's real callback handler exchanged
+the code with Keycloak and returned a real signed access token → that
+exact token, handed to the *actual running gateway container's*
+`verify_jwt`, produced `Principal(sub='dev-ceo', kind='user',
+roles=['ceo'], scopes=[])` → the same token, sent as a real
+`Authorization: Bearer` header to `GET /api/payroll/runs/2026-07`, got a
+real `200` with the real computed payroll register (not a 401/403) —
+proof the whole chain (Keycloak issues a token → gateway backend exchanges
+it → `verify_jwt` validates it against the live JWKS → gateway RBAC
+accepts the resulting principal) works end to end on the real stack, not
+just in isolation per-component.
+
+**Deliberately not done this round — `/api/dev/login` still exists and
+still works.** DEVIATIONS.md #2 originally said Keycloak "deletes
+`config/dev_users.yaml` / the dev-login route" — that's not done yet.
+Both paths coexist: `/api/dev/login` (unchanged, HS256, still gated on
+`AWP_ENV=dev`) and the new `/api/auth/login`+`/api/auth/callback`
+(Keycloak, RS256). Reasoning: every other agent/MCP-server test and every
+piece of live-verification tooling built across Sprints 1-10 depends on
+`/api/dev/login` continuing to work, and `web/`'s UI has no route to
+receive a redirect-delivered token yet (`oidc_auth.py`'s `/callback`
+returns the token as bare JSON, not a redirect into `web/` — a real SPA
+integration needs one or the other: a `web_origin#access_token=...`
+redirect, or a session cookie plus a `/api/auth/session` endpoint for the
+SPA to read it back). Wiring `web/`'s login page to actually use the new
+flow, and then retiring `/api/dev/login`, is a documented follow-up, not
+Sprint 11 work done so far.
+
+**Dev-only credentials, same pattern as every other secret in this
+build**: `realm-export.json`'s 9 users share the password
+`dev-only-not-for-prod`; the `awp-gateway` client's secret is
+`dev-only-gateway-secret-change-me` (`.env.example`). Both belong in a
+real secrets manager before anything resembling production.
+
+Test count after this sub-sprint: see README.md's Status section (this
+file doesn't repeat every count going forward — Sprint 11 has more
+sub-entries coming as its other six pieces land).
