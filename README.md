@@ -257,7 +257,7 @@ drops long-held HTTP connections to the new IDE endpoint on this host,
 package.
 
 Sprint 11 (in progress — doc 12 §5's hardening sprint spans roughly seven
-independent sub-builds; two are done so far): Keycloak swap-in
+independent sub-builds; three are done so far): Keycloak swap-in
 for human auth. `deploy/keycloak/realm-export.json` (roles matching
 `config/dev_users.yaml`, 9 dev users, a confidential `awp-gateway` client)
 imports into a new `keycloak` service; `verify_jwt` now branches on JWT
@@ -313,7 +313,30 @@ have independent reason for confidence even without today's live run. Doc
 09 §4.5's "per-agent tool-call budget (default 25)" is not implemented or
 enforced anywhere in this codebase — also `DEVIATIONS.md` #23.
 
-735 tests passing, ruff + mypy strict clean across every implemented
+Third Sprint 11 piece: backup/restore + a restore drill (doc 09 §3, doc
+10 §6's durability NFR). `scripts/backup.sh` captures all three data
+stores from the real running stack — `pg_dump` (Postgres), `mc mirror`
+(MinIO, via the `minio` image's own bundled client), and a real Qdrant
+snapshot per collection. `scripts/restore_drill.sh` restores the Postgres
+dump into a throwaway container (never touches the real dev database) and
+verifies real row counts. Encryption-at-rest and a MinIO/Qdrant restore
+drill are both documented follow-ups, not done this round — `DEVIATIONS.md`
+#24.
+
+Verified live: a real backup captured a 956KB `pg_dump`, 40 real MinIO
+PDFs, and the one real Qdrant collection that exists. The restore drill
+then restored that dump into a throwaway container and confirmed real row
+counts (`employees=40`, `tickets=6`, `journal_entries=55`, `projects=16`)
+match the live database exactly, in 26 seconds — far under the 4-hour RTO
+budget. This surfaced and fixed a real bug: Git Bash's automatic
+POSIX-to-Windows path rewriting was silently corrupting a container-internal
+path argument passed through `docker exec`, breaking `pg_restore` in a way
+no amount of shell quoting could fix — `DEVIATIONS.md` #24.
+
+735 tests passing (backup/restore are live-verification shell scripts,
+same "no pytest coverage, live-run instead" pattern as
+`scripts/shadow_diff.py`/`scripts/resume_extraction_eval.py` —
+no new unit tests), ruff + mypy strict clean across every implemented
 package.
 
 ## Prerequisites

@@ -1,4 +1,4 @@
-.PHONY: dev up down models migrate seed test lint typecheck redteam eval smoke bootstrap logs web web-e2e
+.PHONY: dev up down models migrate seed test lint typecheck redteam redteam-live eval smoke bootstrap logs web web-e2e backup restore-drill
 
 # Recipes that run on the host (migrate/seed/smoke) need $(DATABASE_URL) etc.
 # in their own process env, not just passed to `docker compose`; `include` +
@@ -30,7 +30,8 @@ test:  ## lint + typecheck + unit + contract tests
 	uv run mypy -p awp_shared -p awp_mcp_base -p awp_mcp_audit -p awp_mcp_approvals -p awp_mcp_erp \
 		-p awp_mcp_comms -p awp_mcp_docs -p awp_mcp_finance -p awp_mcp_search -p awp_mcp_hrsourcing \
 		-p awp_mcp_projects -p awp_agent_base -p awp_agent_orch0 -p awp_agent_sup1 -p awp_agent_adm1 \
-		-p awp_agent_fin1 -p awp_agent_hr1 -p awp_agent_ops1 -p awp_scheduler -p awp_gateway -p fincore
+		-p awp_agent_fin1 -p awp_agent_hr1 -p awp_agent_ops1 -p awp_scheduler -p awp_gateway -p fincore \
+		-p awp_evals
 	uv run pytest -q
 
 web:  ## install + run the web app dev server (needs `make up`)
@@ -45,8 +46,17 @@ smoke:  ## model-gateway tool-call round trip (needs `make up models`)
 redteam:  ## approval-token forgery/replay/expiry red tests (subset live in mcps/*/tests today)
 	uv run pytest -q -k redteam
 
+redteam-live:  ## behavioral red-team suite, doc 09 §4.4/§6-7 (needs `make up`; DEVIATIONS.md #23)
+	uv run python -m awp_evals.harness
+
 eval:  ## resume-extraction F1/recall live eval, doc 04 §5.1-2 (needs `make up`)
 	uv run python scripts/resume_extraction_eval.py
+
+backup:  ## nightly-style pg_dump + MinIO mirror + Qdrant snapshot (needs `make up`; DEVIATIONS.md #24)
+	bash scripts/backup.sh
+
+restore-drill:  ## restore the latest backup into a throwaway container and verify (doc 10 §6 NFR)
+	bash scripts/restore_drill.sh
 
 bootstrap:  ## one-shot: up, models, migrate, seed, smoke
 	bash scripts/dev_bootstrap.sh

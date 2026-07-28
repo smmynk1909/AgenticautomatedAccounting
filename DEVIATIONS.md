@@ -1276,3 +1276,72 @@ deterministic, code-not-LLM priority policy (`intake.py`'s
 `apply_priority_policy`), which structurally can't be talked into a
 different code path by ticket body text. Neither of those is a substitute
 for the case's own live run.
+
+## 24. Sprint 11 — backup/restore + restore drill
+
+Doc 09 §3's ops-runbook line ("nightly `pg_dump` + MinIO mirror + Qdrant
+snapshot to encrypted disk, restore drill quarterly") and doc 10 §6's NFR
+("Durability: RPO 24h (nightly backup), RTO 4h — quarterly restore
+drill"). `scripts/backup.sh` captures all three data stores from the real
+running containers: `pg_dump --format=custom` (Postgres), `mc mirror`
+(MinIO — run via the `minio` image's own bundled `mc` client over
+`docker exec`, so nothing extra needs installing on the host), and a real
+Qdrant snapshot per collection via its REST API (`POST
+/collections/{c}/snapshots`, then download the resulting file). Output
+goes to `deploy/backups/<UTC timestamp>/` (gitignored — see below).
+`scripts/restore_drill.sh` restores the most recent (or a named) backup's
+Postgres dump into a throwaway, uniquely-named container on its own
+volume — never touches the real dev database — verifies real seeded row
+counts, reports elapsed time against the 4h RTO budget, and tears the
+throwaway container down.
+
+**Encryption-at-rest is not implemented.** Doc 09 §3 says "to encrypted
+disk" — this dev machine has no KMS/secrets vault to hold an encryption
+key against (same "single trusted-developer machine" gap as
+`DEVIATIONS.md` #2's dev-JWT and #22's dev-only Keycloak credentials). The
+backup directory's contents (a full `pg_dump` of every table, including
+PII — employee records, comp data, resumes) are exactly as sensitive as
+the live database and must never leave this machine unencrypted in a real
+deployment; `deploy/backups/` is gitignored specifically because of this.
+Encrypting the archive (e.g. `age`/`gpg` with a key from a real secrets
+manager) is a reasonable follow-up once one exists — same "swap the
+mechanism, keep the contract" pattern as every other dev-mode
+simplification in this file.
+
+**MinIO/Qdrant restore is not drilled, only captured.** `restore_drill.sh`
+covers Postgres only — the highest-value target (it holds the ledger,
+`journal_entries`, and every other row this NFR's "TB always balanced"
+half cares about). A MinIO object round-trip (`mc mirror` back into a
+fresh bucket) and a Qdrant snapshot restore (`PUT
+/collections/{c}/snapshots/upload`) are mechanically similar and a
+reasonable next-drill addition, not done this round.
+
+**Real bug found and fixed by live verification: Git Bash's automatic
+POSIX-to-Windows path rewriting silently broke `docker exec`.**
+`pg_restore` failed with `could not open input file
+"C:/Users/.../AppData/Local/Temp/restore.dump"` — MSYS (the Git-Bash
+environment this host's `Bash` tool runs under) rewrites any
+POSIX-looking absolute-path *argument* (`/tmp/restore.dump`) into a
+Windows path before the process it's passed to (here, `docker`, and via
+it, `pg_restore` running *inside* the container) ever sees it — even
+though that path was never meant to resolve on the Windows host at all,
+only inside the container's own filesystem. No amount of quoting fixes
+this; it's a environment-level argument rewrite, not a shell-quoting
+issue. Fixed with `export MSYS_NO_PATHCONV=1` at the top of both scripts
+(a no-op on native Linux/macOS bash). Exactly the kind of bug this
+project's practice of live-verifying scripts, not just reviewing them,
+exists to catch — review would never have flagged this, since the script
+reads correctly on paper.
+
+**Live end-to-end verification (real Docker stack, no mocks):**
+`scripts/backup.sh` ran against the real running containers — captured a
+956KB `pg_dump`, mirrored 40 real salary-slip/issuance-form PDFs out of
+MinIO (Sprint 6/4's live-verified artifacts), and snapshotted the one real
+Qdrant collection that exists (`code_awp-admin_awp-sample-svc`, Sprint
+10's CodeAssist corpus). `scripts/restore_drill.sh` then restored that
+same Postgres dump into a throwaway container and verified real row
+counts (`employees=40`, `tickets=6`, `journal_entries=55`, `projects=16`)
+— cross-checked against a direct query of the live database and confirmed
+to match **exactly** — in 26 seconds total, several orders of magnitude
+under the 4-hour RTO budget. The live dev database was never touched by
+the drill.
