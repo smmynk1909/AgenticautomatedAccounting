@@ -1628,3 +1628,75 @@ container, the audit job actually firing on a real schedule, k6 against
 a real gateway, and Sprint 8/9's still-blocked live dispatch — is
 unchanged by any of the above; unit tests prove the code is correct in
 isolation, not that the live system behaves as intended end to end.
+
+**Update: the kill-switch drill named above as still-outstanding was
+run live, and it surfaced two real issues before producing a genuine
+pass.** First attempt: `scripts/kill_switch.py on OPS-1`, dispatched a
+real `timeline_risk_scan` task, polled — it showed `pending` for three
+polls, then `done` on the fourth, despite the switch never being turned
+off. A false pass. Root cause: the `deploy-ops1-1` container running on
+this host had been built (`docker inspect --format '{{.Created}}'`)
+over 21 hours before the kill-switch commit (`bbb5595`) even existed —
+it was executing stale code with no kill-switch check at all, so
+`scripts/kill_switch.py on` had zero effect on it. This applies to
+*every* container that's been running since before this session's
+Sprint 11/12 commits landed — none of that work (metrics, kill-switch,
+HITL-max, audit-chain job) had actually been exercised by the live
+stack until an image is rebuilt, no matter how much of it was unit-
+tested. `docker compose build ops1` + `docker compose up -d ops1`
+picked up the current code.
+
+Second issue, caused while fixing the first: `docker compose -f
+deploy/docker-compose.dev.yml up -d ops1` was run without
+`--env-file .env` (the flag `make up`/`Makefile` always includes).
+Compose detected the resulting env-var mismatch against every
+service's already-recorded config and treated it as drift, recreating
+seven containers it had no reason to touch — `postgres`, `mcp-audit`,
+`mcp-approvals`, `mcp-projects`, `mcp-erp`, `mcp-comms`, `mcp-search` —
+with blank environment variables. Confirmed broken by direct
+inspection: `deploy-mcp-erp-1`'s `DATABASE_URL` was
+`postgresql+asyncpg://:@postgres:5432/` (empty user/password/db) and
+`AWP_DEV_JWT_SECRET` was unset, crash-erroring on the very first real
+request (`RuntimeError: AWP_DEV_JWT_SECRET not set`). Postgres itself
+was unaffected in practice — the official image only consults
+`POSTGRES_USER`/`PASSWORD`/`DB` for bootstrapping an *empty* data
+directory, and `pgdata` already had a real, initialized cluster, so a
+recreate with blank env vars just restarted the same real database
+untouched — but the six application containers were genuinely broken
+until `docker compose -f deploy/docker-compose.dev.yml --env-file .env
+up -d` was re-run, which restored every real value with zero data loss
+(confirmed via `docker inspect`'s `RestartCount=0` on all six — they
+never crash-looped visibly in `docker ps`, they just silently 500'd on
+every request, which is arguably worse: a monitoring setup watching
+container-up status alone would have missed this entirely — a real
+argument for the observability work in this same entry actually being
+live and scraped, not just built).
+
+With both issues fixed, the drill re-ran clean: the task stayed
+genuinely `pending` for a full 12-second poll window while parked
+(`docker logs deploy-ops1-1` showed `bus.kill_switch_parked
+agent=OPS-1` firing every ~2s throughout — proof the consumer loop
+itself was never issuing `XREADGROUP`, not just that the task happened
+not to finish yet), then `scripts/kill_switch.py off OPS-1` and the
+exact same task was picked up and completed with no special resume
+logic needed. `go-live-checklist.md`'s kill-switch item is now checked
+for real.
+
+**Scope of what this actually proves, stated precisely**: only
+`ops1`'s *image* was rebuilt (`docker image inspect
+deploy-ops1:latest` → `2026-07-29T11:12`). Checked every other
+service's image afterward — `mcp-audit`, `mcp-approvals`,
+`mcp-projects`, `mcp-comms`, `mcp-search`, `fin1`, `adm1`, `sup1`,
+`orch0`, `scheduler`, and `gateway` are all still `2026-07-28`, before
+any Sprint 11/12 commit existed (confirmed directly for `hr1`:
+`'set_kill_switch' in dir(TaskBus)` → `False` inside the running
+container). The `--env-file` fix above recreated their *containers*
+(new env vars like `OTEL_EXPORTER_OTLP_ENDPOINT`/`AWP_HITL_MAX` now
+present) without rebuilding their *images* — `docker compose up -d`
+never rebuilds, only `--build` or an explicit `build` does. Net effect:
+the kill-switch drill above is a real, live-verified result for OPS-1
+specifically; the metrics endpoints, HITL-max, and daily audit-chain
+job remain **unexercised on this host** despite being unit-tested,
+exactly as this entry's scope note already said — rebuilding is what
+turns "code-complete" into "actually running," and that hasn't
+happened yet for 23 of this stack's 24 containers.

@@ -63,13 +63,22 @@ without actually doing the thing.
       signature this repo cannot provide.
 - [ ] **Dept-head sign-off per agent.** Same category as the above — a
       human approval step, not a code deliverable.
-- [ ] **Kill-switch drill executed.** The mechanism now exists
-      (`scripts/kill_switch.py`, `TaskBus.set_kill_switch`/`is_killed` —
-      see `incident.md`) and is a small enough change that it's plausibly
-      correct, but "drill executed" means actually flipping it against a
-      live agent mid-task and confirming the parked-then-resumed behavior
-      for real — not done this session (implementation only, per this
-      session's scope).
+- [x] **Kill-switch drill executed.** Live-verified against the real
+      running stack: `scripts/kill_switch.py on OPS-1`, dispatched a
+      real `timeline_risk_scan` task over the real Redis bus, confirmed
+      it stayed `pending` for a full 12s poll window while parked
+      (`docker logs` showed `bus.kill_switch_parked` firing every 2s the
+      whole time — the mechanism is genuinely not reading, not just not
+      finishing), then `scripts/kill_switch.py off OPS-1` and confirmed
+      the exact same task was picked up and completed with no special
+      resume step. First attempt gave a false pass (task showed `done`
+      while supposedly parked) — root cause: `ops1`'s running container
+      image was built over 21 hours before the kill-switch code was even
+      committed, so it was executing old code that never checked the
+      switch at all. Rebuilding the image and re-running the drill
+      produced the real result above. See `DEVIATIONS.md` #25's update
+      for the full account, including an unrelated config-drift mistake
+      made mid-drill and its fix.
 - [ ] **On-call & escalation defined.** `incident.md` defines the
       *process* (severities, escalation ladder, kill-switch). It does
       **not** define a real roster or paging integration — that's a
