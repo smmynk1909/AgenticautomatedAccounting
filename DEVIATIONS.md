@@ -1592,3 +1592,39 @@ touched file (all clean); a full workspace `uv run ruff check .` /
 `uv run mypy .` / `uv run pytest` pass has **not** been done against
 this entry's changes and should be the very first thing run once a
 server is available, before any live-dispatch work resumes.
+
+**Update, same overall push: the "not yet live-verified" gap above was
+partially closed the same day.** A full workspace `pytest`/`mypy`/`ruff`
+pass (735 tests, unchanged) confirmed nothing in this entry's changes
+broke anything pre-existing, then unit tests were actually written for
+every new mechanism this entry introduced — kill-switch queue-park
+behavior (`shared/awp_shared/tests/test_bus.py`), metrics recording at
+all three choke points (`test_llm.py`, `mcps/_base/.../test_pipeline.py`,
+`agents/_base/.../test_app.py`, plus a new `test_metrics.py` smoke
+test), HITL-max forcing the `expense_posting` gate
+(`mcps/finance/.../test_tools_ledger.py`), and the daily audit-chain
+job's escalation logic (`scheduler/.../test_auditcheck.py`, new) — 735
+-> 753 tests, still 0 failures, mypy/ruff still clean. The repo was then
+pushed to a real GitHub remote for the first time
+(`github.com/smmynk1909/AgenticautomatedAccounting`) and
+`.github/workflows/ci.yml` actually ran for the first time in this
+project's history — surfacing one real, pre-existing issue unrelated to
+any Sprint 11/12 work: `ruff format --check` failing on 62 files whose
+formatting had drifted (likely an editor/ruff-version difference across
+sessions) without ever being caught, since every prior sprint's local
+checks only covered the files that sprint touched, never a full-
+workspace format pass. Fixed with a single `uv run ruff format .`
+(zero logic changes), pushed, CI went green (run
+`30445006986`). Finally, the go-live checklist's one remaining
+code-closeable gap — "RBAC matrix test 100%" — was closed for real:
+`gateway/awp_gateway/tests/test_rbac.py` exhaustively tests every role
+`config/roles.yaml` defines against every resource `rbac.py` gates
+(ticket categories, dashboards, payroll view), with expected-access
+tables authored independently of `rbac.py`'s own internals and role/
+category lists pulled dynamically from config — 735 -> 753 -> 760 tests,
+still 0 failures. What's still genuinely only provable on a live stack
+— Grafana actually scraping, the kill-switch actually pausing a live
+container, the audit job actually firing on a real schedule, k6 against
+a real gateway, and Sprint 8/9's still-blocked live dispatch — is
+unchanged by any of the above; unit tests prove the code is correct in
+isolation, not that the live system behaves as intended end to end.

@@ -39,10 +39,18 @@ without actually doing the thing.
       `push_dashboard_item` on any mismatch. Unchecked because it hasn't
       run against a live stack yet (this session's scope was
       implementation, not live verification — see below).
-- [ ] **RBAC matrix test 100%.** `gateway/awp_gateway/rbac.py` exists and
-      is exercised incidentally by ticket/dashboard router tests, but
-      there's no dedicated test enumerating every role × resource
-      combination doc 09's RBAC matrix defines. A real gap.
+- [x] **RBAC matrix test 100%.** `gateway/awp_gateway/tests/test_rbac.py`
+      exhaustively covers every role `config/roles.yaml` defines against
+      every resource `rbac.py` gates: ticket category visibility (15
+      roles × 12 categories, individually asserted, not just row-sum
+      equality), dashboard visibility (15×15 role pairs), and payroll
+      view (15 roles) — plus multi-role union semantics. The expected-
+      access tables are authored independently of `rbac.py`'s own
+      internals (never imports its private constants) and dynamically
+      pull the role/category lists from config, so a role or category
+      added later without an explicit decision here fails the test
+      rather than defaulting silently. All pass against the real
+      implementation, unit-level (pytest, no live stack needed).
 - [ ] **Runbooks reviewed by ops owner.** The 6 runbooks this directory
       now contains (`incident.md`, `restore-drill.md`,
       `model-upgrade.md`, `degraded-cpu-mode.md`, `secrets-rotation.md`,
