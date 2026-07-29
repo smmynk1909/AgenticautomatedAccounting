@@ -62,17 +62,13 @@ def build_graph(llm: Any, mcp: Any) -> Any:
         n.make_check_generate_salary_slips_approval_node(mcp),
     )
     graph.add_node("record_expense", n.make_record_expense_node(llm, mcp))
-    graph.add_node(
-        "check_record_expense_approval", n.make_check_record_expense_approval_node(mcp)
-    )
+    graph.add_node("check_record_expense_approval", n.make_check_record_expense_approval_node(mcp))
     graph.add_node("month_close", n.make_month_close_node(mcp))
     graph.add_node("check_month_close_approval", n.make_check_month_close_approval_node(mcp))
     graph.add_node("create_invoice", n.make_create_invoice_node(mcp))
     graph.add_node("check_create_invoice_approval", n.make_check_create_invoice_approval_node(mcp))
     graph.add_node("compute_tax", n.make_compute_tax_node(mcp))
-    graph.add_node(
-        "financial_requirement_report", n.make_financial_requirement_report_node(mcp)
-    )
+    graph.add_node("financial_requirement_report", n.make_financial_requirement_report_node(mcp))
     graph.add_node("respond", n.n_respond)
 
     all_node_names = set(_INTENT_TO_NODE.values()) | set(_AWAITING_TO_CHECK_NODE.values())

@@ -77,9 +77,8 @@ async def reconcile_one_dag(
 
     if all(e["status"] in TERMINAL_STATUSES for e in dag.values()):
         failed = [e for e in dag.values() if e["status"] == "failed"]
-        summary = (
-            f"DAG complete: {len(dag) - len(failed)}/{len(dag)} tasks done"
-            + (f", {len(failed)} failed" if failed else "")
+        summary = f"DAG complete: {len(dag) - len(failed)}/{len(dag)} tasks done" + (
+            f", {len(failed)} failed" if failed else ""
         )
         await mcp.call(
             "erp",

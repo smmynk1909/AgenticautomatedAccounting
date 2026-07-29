@@ -64,14 +64,13 @@ def generate_labeled_resumes(n: int = 50, seed: int = SEED) -> list[LabeledResum
         else:
             gap_months = rng.choice([0, 0, 4, 8])
             pos2_start = _shift(pos1_end, gap_months)
-            gaps = (
-                [Gap.new(from_=pos1_end, to=pos2_start, months=gap_months)] if gap_months else []
-            )
+            gaps = [Gap.new(from_=pos1_end, to=pos2_start, months=gap_months)] if gap_months else []
         pos2_end = _shift(pos2_start, rng.randint(12, 30))
 
         org1, org2 = fake.company(), fake.company()
-        title1, title2 = rng.choice(["Software Engineer", "Analyst"]), rng.choice(
-            ["Senior Engineer", "Team Lead"]
+        title1, title2 = (
+            rng.choice(["Software Engineer", "Analyst"]),
+            rng.choice(["Senior Engineer", "Team Lead"]),
         )
         skills = rng.sample(SKILL_POOL, k=4)
         degree = rng.choice(["B.Tech Computer Science", "B.Sc Mathematics", "MBA"])
@@ -81,9 +80,7 @@ def generate_labeled_resumes(n: int = 50, seed: int = SEED) -> list[LabeledResum
             Position.new(org=org1, title=title1, from_=start, to=pos1_end, skills=skills[:2]),
             Position.new(org=org2, title=title2, from_=pos2_start, to=pos2_end, skills=skills[2:]),
         ]
-        total_exp_months = sum(
-            _month_index(p.to) - _month_index(p.from_) for p in positions
-        )
+        total_exp_months = sum(_month_index(p.to) - _month_index(p.from_) for p in positions)
 
         truth = CandidateProfile(
             name=name,

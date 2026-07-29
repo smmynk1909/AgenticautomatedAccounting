@@ -29,9 +29,7 @@ def register_issue_tools(server: AwpMcpServer, uow: UnitOfWork) -> None:
         description = payload.get("description")
         impact = payload.get("impact")
         if not project_id or not description or not impact:
-            raise ValidationError(
-                "create_issue requires 'project_id', 'description', 'impact'"
-            )
+            raise ValidationError("create_issue requires 'project_id', 'description', 'impact'")
         if impact not in _VALID_IMPACT:
             raise ValidationError(f"impact must be one of {sorted(_VALID_IMPACT)}")
         severity = payload.get("severity", "S3")

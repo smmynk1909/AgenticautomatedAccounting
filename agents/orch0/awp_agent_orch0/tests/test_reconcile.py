@@ -55,9 +55,7 @@ async def test_reconcile_dispatches_dependent_once_parent_done(
     }
     await checkpoints.save(parent.task_id, "orch0", state)
 
-    mcp = FakeMCP(
-        handlers={("erp", "get_task_status"): {"task": {"status": "done", "result": {}}}}
-    )
+    mcp = FakeMCP(handlers={("erp", "get_task_status"): {"task": {"status": "done", "result": {}}}})
     outcome = await reconcile_one_dag(mcp, bus, checkpoints, parent.task_id)
 
     assert outcome == "in_progress"
@@ -90,9 +88,7 @@ async def test_reconcile_completes_and_aggregates_when_all_terminal(
     }
     await checkpoints.save(parent.task_id, "orch0", state)
 
-    mcp = FakeMCP(
-        handlers={("erp", "get_task_status"): {"task": {"status": "done", "result": {}}}}
-    )
+    mcp = FakeMCP(handlers={("erp", "get_task_status"): {"task": {"status": "done", "result": {}}}})
     outcome = await reconcile_one_dag(mcp, bus, checkpoints, parent.task_id)
 
     assert outcome == "done"

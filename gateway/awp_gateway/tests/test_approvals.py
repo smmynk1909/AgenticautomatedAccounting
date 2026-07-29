@@ -39,9 +39,7 @@ async def test_inbox_filters_by_role(client: AsyncClient, uow: UnitOfWork) -> No
 
 
 @pytest.mark.asyncio
-async def test_approve_mints_token_when_threshold_met(
-    client: AsyncClient, uow: UnitOfWork
-) -> None:
+async def test_approve_mints_token_when_threshold_met(client: AsyncClient, uow: UnitOfWork) -> None:
     async with uow() as session:
         created = await ApprovalStore(session).create(
             gate="invoice_issue",

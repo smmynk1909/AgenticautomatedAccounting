@@ -121,9 +121,7 @@ class AgentApp:
         try:
             await self._on_result(env, result)
         except Exception as exc:  # noqa: BLE001 - best-effort mirror, never fails the task
-            logger.warning(
-                "agent.on_result_hook_failed", agent=self.agent_id.value, error=str(exc)
-            )
+            logger.warning("agent.on_result_hook_failed", agent=self.agent_id.value, error=str(exc))
 
     async def run_forever(
         self, bus: TaskBus, *, consumer_name: str = "worker-1", stop: asyncio.Event | None = None

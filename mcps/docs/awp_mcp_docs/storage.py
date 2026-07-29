@@ -38,9 +38,7 @@ class DocStorage:
         if not self._client.bucket_exists(self._bucket):
             self._client.make_bucket(self._bucket)
 
-    def put(
-        self, data: bytes, *, filename: str, content_type: str, scope: list[str] | str
-    ) -> str:
+    def put(self, data: bytes, *, filename: str, content_type: str, scope: list[str] | str) -> str:
         object_name = f"{uuid.uuid4()}/{filename}"
         self._client.put_object(
             self._bucket,

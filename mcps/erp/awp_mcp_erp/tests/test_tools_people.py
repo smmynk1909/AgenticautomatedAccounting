@@ -313,9 +313,7 @@ async def test_get_role_unknown_id_404s(erp_server: AwpMcpServer) -> None:
 
 
 @pytest.mark.asyncio
-async def test_upsert_role_caches_role_profile(
-    erp_server: AwpMcpServer, base_org: dict
-) -> None:
+async def test_upsert_role_caches_role_profile(erp_server: AwpMcpServer, base_org: dict) -> None:
     updated = await erp_server.dispatch_raw(
         "upsert_role",
         {

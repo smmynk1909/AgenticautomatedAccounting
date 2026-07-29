@@ -90,7 +90,5 @@ def gitea() -> FakeGiteaClient:
 
 
 @pytest.fixture
-def projects_server(
-    uow: UnitOfWork, redis: FakeRedis, gitea: FakeGiteaClient
-) -> AwpMcpServer:
+def projects_server(uow: UnitOfWork, redis: FakeRedis, gitea: FakeGiteaClient) -> AwpMcpServer:
     return make_projects_server(uow, redis, NullAuditSink(), gitea)

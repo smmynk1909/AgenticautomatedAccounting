@@ -26,12 +26,8 @@ delivery_issues = Table(
     Column("owner", sa.String(40), nullable=True),
     Column("mitigation_options", JSON, nullable=False, default=list),
     Column("decision_needed_by", sa.Date(), nullable=True),
-    Column(
-        "created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()
-    ),
-    Column(
-        "updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()
-    ),
+    Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+    Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
 )
 
 patch_artifacts = Table(
@@ -44,7 +40,5 @@ patch_artifacts = Table(
     Column("rationale", sa.Text(), nullable=False),
     Column("proposed_by", sa.String(40), nullable=False),
     Column("status", sa.String(20), nullable=False, server_default="proposed"),
-    Column(
-        "created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()
-    ),
+    Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
 )

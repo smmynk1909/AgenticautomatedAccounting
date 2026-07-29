@@ -39,9 +39,7 @@ def fetch_from_source(payload: dict[str, Any]) -> dict[str, Any]:
     limit = payload.get("limit", 20)
 
     if source_id not in KNOWN_SOURCES:
-        raise ValidationError(
-            f"unknown source_id: {source_id!r} (known: {sorted(KNOWN_SOURCES)})"
-        )
+        raise ValidationError(f"unknown source_id: {source_id!r} (known: {sorted(KNOWN_SOURCES)})")
 
     if source_id == "csv_import":
         csv_content = payload.get("csv_content")

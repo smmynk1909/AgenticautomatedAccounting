@@ -61,8 +61,10 @@ def register_search_tools(
                     raise ValidationError("each doc requires 'text'")
                 metadata = doc.get("metadata") or {}
                 doc_id = doc.get("id") or str(uuid.uuid4())
-                doc_namespace = uuid.UUID(doc_id) if _is_uuid(doc_id) else uuid.uuid5(
-                    uuid.NAMESPACE_OID, doc_id
+                doc_namespace = (
+                    uuid.UUID(doc_id)
+                    if _is_uuid(doc_id)
+                    else uuid.uuid5(uuid.NAMESPACE_OID, doc_id)
                 )
                 chunks = chunk_text(text)
                 vectors = await embedder.embed(chunks)

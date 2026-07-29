@@ -82,9 +82,7 @@ def score_candidate(
     must_have = role_profile.get("must_have", [])
     kw = keyword_coverage(must_have, profile.skills_normalized)
     exp = experience_fit(role_profile.get("min_exp_months", 0), profile.total_exp_months)
-    recency = recency_of_relevant_skills(
-        [p.model_dump() for p in profile.positions], must_have
-    )
+    recency = recency_of_relevant_skills([p.model_dump() for p in profile.positions], must_have)
     consistency = profile.audit_score.consistency
 
     breakdown = {

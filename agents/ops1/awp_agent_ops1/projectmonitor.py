@@ -96,7 +96,7 @@ class HealthReport:
 
     @property
     def worst_risk_severity(self) -> str:
-        """"Worst-3 to ADM-1 exec dashboard" (doc 05 §2.2 step 5) needs a
+        """ "Worst-3 to ADM-1 exec dashboard" (doc 05 §2.2 step 5) needs a
         rankable severity per report — code, not an LLM judgment call.
         Values match `dashboard_items.severity`'s established vocabulary
         (`"info"`/`"warning"`/`"critical"` — see every other agent's

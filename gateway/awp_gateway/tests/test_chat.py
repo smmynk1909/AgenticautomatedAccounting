@@ -12,9 +12,7 @@ def _headers(user_id: str = "dev-employee", roles: list[str] | None = None) -> d
 
 @pytest.mark.asyncio
 async def test_chat_dispatches_and_returns_task_id(client: AsyncClient, mcp: FakeMCP) -> None:
-    r = await client.post(
-        "/api/chat/ORCH-0", json={"message": "please help"}, headers=_headers()
-    )
+    r = await client.post("/api/chat/ORCH-0", json={"message": "please help"}, headers=_headers())
     assert r.status_code == 200
     assert "task_id" in r.json()
     dispatch_calls = [c for c in mcp.calls if c[1] == "dispatch_task"]
@@ -29,9 +27,7 @@ async def test_chat_requires_message(client: AsyncClient) -> None:
 
 @pytest.mark.asyncio
 async def test_chat_unknown_agent_400s(client: AsyncClient) -> None:
-    r = await client.post(
-        "/api/chat/NOT-AN-AGENT", json={"message": "hi"}, headers=_headers()
-    )
+    r = await client.post("/api/chat/NOT-AN-AGENT", json={"message": "hi"}, headers=_headers())
     assert r.status_code == 400
 
 

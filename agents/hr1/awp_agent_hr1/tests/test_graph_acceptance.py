@@ -33,9 +33,7 @@ async def test_source_candidates_uses_cached_role_profile() -> None:
     mcp = FakeMCP(
         handlers={
             ("erp", "get_role"): {"id": "R1", "role_profile": {"must_have": ["Python"]}},
-            ("search", "search_candidates"): {
-                "candidates": [{"candidate_id": "C1", "score": 0.9}]
-            },
+            ("search", "search_candidates"): {"candidates": [{"candidate_id": "C1", "score": 0.9}]},
         }
     )
     graph = build_graph(FakeLLM([]), mcp)
@@ -230,9 +228,7 @@ async def test_check_shortlist_role_approval_rejected() -> None:
 
 # --- prepare_negotiation ---
 
-_TALK_TRACK_JSON = (
-    '{"pairs": [{"objection": "wants more", "response": "we can move within band"}]}'
-)
+_TALK_TRACK_JSON = '{"pairs": [{"objection": "wants more", "response": "we can move within band"}]}'
 
 
 def _negotiation_mcp(extra: dict | None = None) -> FakeMCP:

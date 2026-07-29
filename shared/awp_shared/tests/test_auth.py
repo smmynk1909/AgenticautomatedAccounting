@@ -52,9 +52,7 @@ def _keycloak_token(
     class _FakeSigningKey:
         key = signing_key or public_key
 
-    monkeypatch.setattr(
-        PyJWKClient, "get_signing_key_from_jwt", lambda self, t: _FakeSigningKey()
-    )
+    monkeypatch.setattr(PyJWKClient, "get_signing_key_from_jwt", lambda self, t: _FakeSigningKey())
     return token
 
 
@@ -103,7 +101,9 @@ def test_keycloak_jwt_accepts_public_issuer_when_split_from_backend_url(
     # /auth), not KEYCLOAK_URL (what the backend uses to reach Keycloak's
     # APIs) — a token must validate against KEYCLOAK_PUBLIC_URL even
     # though KEYCLOAK_URL points somewhere else entirely.
-    token = _keycloak_token(monkeypatch, claims_override={"iss": "http://public-kc.test/realms/awp"})
+    token = _keycloak_token(
+        monkeypatch, claims_override={"iss": "http://public-kc.test/realms/awp"}
+    )
     monkeypatch.setenv("KEYCLOAK_PUBLIC_URL", "http://public-kc.test")
     principal = verify_jwt(token)
     assert principal.sub == "dev-ceo"

@@ -88,9 +88,7 @@ _REVIEW_SYSTEM_PROMPT = """You review a code diff. Rules:
 4. Output must match the CodeReview JSON schema exactly."""
 
 
-async def run_mode(
-    llm: LLMLike, mode: str, context: str, instruction: str
-) -> CodeReview | str:
+async def run_mode(llm: LLMLike, mode: str, context: str, instruction: str) -> CodeReview | str:
     if mode not in _VALID_MODES:
         raise ValidationError(f"unknown CodeAssist mode: {mode!r} (known: {sorted(_VALID_MODES)})")
 

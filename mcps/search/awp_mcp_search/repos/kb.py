@@ -28,8 +28,6 @@ class KbDocumentRepo(RepoBase):
     async def get_many(self, ids: list[str]) -> dict[str, dict[str, Any]]:
         if not ids:
             return {}
-        stmt = select(self.table).where(
-            self.table.c.id.in_(ids), self.table.c.deleted_at.is_(None)
-        )
+        stmt = select(self.table).where(self.table.c.id.in_(ids), self.table.c.deleted_at.is_(None))
         rows = (await self.session.execute(stmt)).mappings().all()
         return {str(r["id"]): dict(r) for r in rows}

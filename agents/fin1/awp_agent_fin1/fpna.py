@@ -28,9 +28,7 @@ async def project_weekly_flows(
     monthly_expense = Decimal(pnl_result.get("expense", "0"))
     weekly_outflow = (monthly_expense / WEEKS_PER_MONTH).quantize(Decimal("0.01"))
 
-    balance_sheet = await mcp.call(
-        "finance", "get_balance_sheet", {"date": start.isoformat()}
-    )
+    balance_sheet = await mcp.call("finance", "get_balance_sheet", {"date": start.isoformat()})
     opening_balance = Decimal(balance_sheet.get("asset", "0"))
 
     assumption: tuple[str, ...] = (

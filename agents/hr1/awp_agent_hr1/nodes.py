@@ -72,9 +72,7 @@ def make_audit_resume_node(mcp: MCPLike) -> Node:
         extracted = await mcp.call(
             "hrsourcing", "extract_resume", {"file_bytes_b64": file_obj["content_base64"]}
         )
-        normalized = await mcp.call(
-            "hrsourcing", "normalize_profile", {"raw": extracted["text"]}
-        )
+        normalized = await mcp.call("hrsourcing", "normalize_profile", {"raw": extracted["text"]})
         profile_dict = normalized["profile"]
 
         # Canonicalize against the skills_master controlled vocabulary
@@ -150,9 +148,7 @@ def make_shortlist_role_node(llm: LLMLike, mcp: MCPLike) -> Node:
         shortlist = []
         for sc in ranked:
             profile = profile_by_id[sc.candidate_id]
-            justification = await justify.write_justification(
-                llm, role_profile, profile, sc.score
-            )
+            justification = await justify.write_justification(llm, role_profile, profile, sc.score)
             shortlist.append(
                 {
                     "candidate_id": sc.candidate_id,
@@ -307,9 +303,7 @@ def make_check_prepare_negotiation_approval_node(mcp: MCPLike) -> Node:
     async def node(state: AgentState) -> AgentState:
         approval_id = state["scratch"].get("approval_id")
         if not approval_id:
-            raise ValidationError(
-                "check_prepare_negotiation_approval reached with no approval_id"
-            )
+            raise ValidationError("check_prepare_negotiation_approval reached with no approval_id")
 
         result = await mcp.call("approvals", "get_approval_status", {"approval_id": approval_id})
         status = result.get("status", "pending")

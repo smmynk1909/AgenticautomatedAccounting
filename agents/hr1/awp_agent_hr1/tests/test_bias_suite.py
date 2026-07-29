@@ -43,9 +43,7 @@ def _make_profile(name: str, seed: int) -> CandidateProfile:
     )
 
 
-def _cohort_triples(
-    names: list[str], ids: list[str]
-) -> list[tuple[str, float, CandidateProfile]]:
+def _cohort_triples(names: list[str], ids: list[str]) -> list[tuple[str, float, CandidateProfile]]:
     # `candidate_id` is deliberately NOT derived from `name`: real
     # candidate_ids are opaque UUIDs (mcp-erp's `candidates.id`), uncorrelated
     # with name. `shortlister.rank_candidates` tie-breaks equal scores by
@@ -94,8 +92,6 @@ def test_identical_candidates_across_cohorts_score_identically() -> None:
     # the eventual shortlist cut) must match exactly.
     profile_a = _make_profile(_COHORT_A_NAMES[0], seed=1)
     profile_b = _make_profile(_COHORT_B_NAMES[0], seed=1)
-    ranked = rank_candidates(
-        [("A", 0.8, profile_a), ("B", 0.8, profile_b)], _ROLE_PROFILE
-    )
+    ranked = rank_candidates([("A", 0.8, profile_a), ("B", 0.8, profile_b)], _ROLE_PROFILE)
     scores = {c.candidate_id: c.score for c in ranked}
     assert scores["A"] == scores["B"]

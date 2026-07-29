@@ -53,9 +53,7 @@ def build_graph(llm: Any, mcp: Any, llm_code: Any = None) -> Any:
     )
     graph.add_node("project_health_report", n.make_project_health_report_node(llm, mcp))
     graph.add_node("timeline_risk_scan", n.make_timeline_risk_scan_node(mcp))
-    graph.add_node(
-        "code_assist_session", n.make_code_assist_session_node(llm_code or llm, mcp)
-    )
+    graph.add_node("code_assist_session", n.make_code_assist_session_node(llm_code or llm, mcp))
     graph.add_node("respond", n.n_respond)
 
     all_node_names = set(_INTENT_TO_NODE.values()) | set(_AWAITING_TO_CHECK_NODE.values())

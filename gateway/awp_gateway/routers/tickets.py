@@ -81,6 +81,4 @@ async def update_ticket(
 ) -> dict[str, Any]:
     if not payload:
         raise ValidationError("update_ticket requires a non-empty patch body")
-    return await state.mcp.call(
-        "erp", "update_ticket", {"ticket_id": ticket_id, "patch": payload}
-    )
+    return await state.mcp.call("erp", "update_ticket", {"ticket_id": ticket_id, "patch": payload})

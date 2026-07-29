@@ -1,4 +1,3 @@
-
 import pytest
 from awp_mcp_base.server import AwpMcpServer
 from awp_shared.auth import mint_service_jwt

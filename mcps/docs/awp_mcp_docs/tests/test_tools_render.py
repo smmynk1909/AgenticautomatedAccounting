@@ -94,9 +94,7 @@ async def test_render_pdf_unbuilt_template_404s(docs_server: AwpMcpServer) -> No
 @pytest.mark.asyncio
 async def test_render_pdf_requires_template_id(docs_server: AwpMcpServer) -> None:
     with pytest.raises(ValidationError):
-        await docs_server.dispatch_raw(
-            "render_pdf", {"data": {}}, _headers(_render_token())
-        )
+        await docs_server.dispatch_raw("render_pdf", {"data": {}}, _headers(_render_token()))
 
 
 @pytest.mark.asyncio
@@ -126,6 +124,4 @@ async def test_render_xlsx_generic_success(docs_server: AwpMcpServer) -> None:
 @pytest.mark.asyncio
 async def test_render_xlsx_requires_sheets(docs_server: AwpMcpServer) -> None:
     with pytest.raises(ValidationError):
-        await docs_server.dispatch_raw(
-            "render_xlsx", {"spec": {}}, _headers(_render_token())
-        )
+        await docs_server.dispatch_raw("render_xlsx", {"spec": {}}, _headers(_render_token()))

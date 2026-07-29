@@ -56,9 +56,7 @@ async def build_gap_report(mcp: MCPLike, emp_id: str) -> list[SkillGap]:
 
     role = await mcp.call("erp", "get_role", {"role_id": role_id})
     role_profile = role.get("role_profile") or {}
-    required = sorted(
-        {*role_profile.get("must_have", []), *role_profile.get("nice_to_have", [])}
-    )
+    required = sorted({*role_profile.get("must_have", []), *role_profile.get("nice_to_have", [])})
     have = {s.lower() for s in employee.get("skills", [])}
 
     gaps: list[SkillGap] = []

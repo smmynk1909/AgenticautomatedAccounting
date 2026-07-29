@@ -219,9 +219,7 @@ async def test_handle_records_task_metrics_on_success(checkpoints: CheckpointSto
 
     assert _counter("awp_agent_tasks_total", **labels) == before_calls + 1
     assert (
-        _counter(
-            "awp_agent_task_duration_seconds_count", agent=AgentId.SUP1.value, intent=intent
-        )
+        _counter("awp_agent_task_duration_seconds_count", agent=AgentId.SUP1.value, intent=intent)
         == before_duration + 1
     )
 

@@ -28,9 +28,7 @@ async def test_suggest_patch_persists_artifact(projects_server: AwpMcpServer) ->
 @pytest.mark.asyncio
 async def test_suggest_patch_requires_fields(projects_server: AwpMcpServer) -> None:
     with pytest.raises(ValidationError):
-        await projects_server.dispatch_raw(
-            "suggest_patch", {"repo": "awp-admin/svc-a"}, _headers()
-        )
+        await projects_server.dispatch_raw("suggest_patch", {"repo": "awp-admin/svc-a"}, _headers())
 
 
 @pytest.mark.asyncio

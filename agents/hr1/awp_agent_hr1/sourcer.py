@@ -61,9 +61,7 @@ async def get_or_build_role_profile(
         )
     profile = await parse_jd(llm, jd_text)
     profile_dict = profile.model_dump()
-    await mcp.call(
-        "erp", "upsert_role", {"record": {"id": role_id, "role_profile": profile_dict}}
-    )
+    await mcp.call("erp", "upsert_role", {"record": {"id": role_id, "role_profile": profile_dict}})
     return profile_dict
 
 

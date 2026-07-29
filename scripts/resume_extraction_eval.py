@@ -66,9 +66,7 @@ async def main(argv: list[str] | None = None) -> int:
     for resume in resumes:
         pdf_b64 = _resume_pdf_b64(resume.text)
         extracted = await mcp.call("hrsourcing", "extract_resume", {"file_bytes_b64": pdf_b64})
-        normalized = await mcp.call(
-            "hrsourcing", "normalize_profile", {"raw": extracted["text"]}
-        )
+        normalized = await mcp.call("hrsourcing", "normalize_profile", {"raw": extracted["text"]})
         predicted = CandidateProfile.model_validate(normalized["profile"])
         scores.append(score_extraction(predicted, resume.ground_truth))
         overlap_results.append((resume.has_real_overlap, predicted))

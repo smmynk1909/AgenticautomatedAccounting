@@ -25,7 +25,5 @@ async def get_dashboard(
     principal: Principal = Depends(require_human),
 ) -> dict[str, Any]:
     if not can_view_dashboard_role(principal, role):
-        raise PermissionDeniedError(
-            f"role(s) {principal.roles} cannot view the {role!r} dashboard"
-        )
+        raise PermissionDeniedError(f"role(s) {principal.roles} cannot view the {role!r} dashboard")
     return await state.mcp.call("erp", "get_dashboard", {"role": role})

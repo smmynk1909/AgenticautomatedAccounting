@@ -106,12 +106,8 @@ def upgrade() -> None:
         ),
         sa.Column("title", sa.String(160), nullable=False),
         sa.Column("grade", sa.String(20), nullable=False),
-        sa.Column(
-            "dept_id", sa.String(36), sa.ForeignKey("departments.id"), nullable=False
-        ),
-        sa.Column(
-            "salary_band_id", sa.String(36), sa.ForeignKey("salary_bands.id"), nullable=True
-        ),
+        sa.Column("dept_id", sa.String(36), sa.ForeignKey("departments.id"), nullable=False),
+        sa.Column("salary_band_id", sa.String(36), sa.ForeignKey("salary_bands.id"), nullable=True),
         sa.Column("role_profile", pg.JSONB(), nullable=False, server_default="{}"),
         *_audit_cols(),
     )
@@ -152,17 +148,13 @@ def upgrade() -> None:
         # Allocation/formatting ("EMP-00001") is application-level (ADM-1
         # RegistryKeeper, doc 03 §2.2), not DB-generated.
         sa.Column("emp_id", sa.String(20), primary_key=True),
-        sa.Column(
-            "candidate_id", sa.String(36), sa.ForeignKey("candidates.id"), nullable=True
-        ),
+        sa.Column("candidate_id", sa.String(36), sa.ForeignKey("candidates.id"), nullable=True),
         sa.Column("name", sa.String(160), nullable=False),
         # pgcrypto-encrypted PII: contact stored as bytea via pgp_sym_encrypt at
         # the repository layer (doc 09 §1 "pgcrypto on comp + PII columns");
         # column type here is bytea, not jsonb, to hold the ciphertext.
         sa.Column("contact_encrypted", sa.LargeBinary(), nullable=True),
-        sa.Column(
-            "dept_id", sa.String(36), sa.ForeignKey("departments.id"), nullable=False
-        ),
+        sa.Column("dept_id", sa.String(36), sa.ForeignKey("departments.id"), nullable=False),
         sa.Column("role_id", sa.String(36), sa.ForeignKey("roles.id"), nullable=False),
         sa.Column("manager_id", sa.String(20), sa.ForeignKey("employees.emp_id"), nullable=True),
         sa.Column("grade", sa.String(20), nullable=False),

@@ -42,9 +42,7 @@ def test_unknown_intent_raises(registry: IntentRegistry) -> None:
 
 
 def test_unknown_agent_raises(registry: IntentRegistry) -> None:
-    plan = _plan(
-        [{"id": "t1", "agent": "NOT-AN-AGENT", "intent": "return_device", "payload": {}}]
-    )
+    plan = _plan([{"id": "t1", "agent": "NOT-AN-AGENT", "intent": "return_device", "payload": {}}])
     with pytest.raises(ValidationError, match="unknown agent"):
         validate_plan(plan, registry)
 

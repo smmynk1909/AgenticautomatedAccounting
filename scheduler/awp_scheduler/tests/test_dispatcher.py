@@ -49,9 +49,7 @@ async def test_dispatch_due_jobs_only_dispatches_matching_jobs(
     redis: FakeRedis, bus: TaskBus, registry: IntentRegistry
 ) -> None:
     mcp = FakeMCP()
-    dispatched = await dispatch_due_jobs(
-        [_DAILY_JOB, _WEEKLY_JOB], _NOW, mcp, bus, redis, registry
-    )
+    dispatched = await dispatch_due_jobs([_DAILY_JOB, _WEEKLY_JOB], _NOW, mcp, bus, redis, registry)
     assert dispatched == ["dashboard_refresh_daily"]
     dispatch_calls = [c for c in mcp.calls if c[1] == "dispatch_task"]
     assert len(dispatch_calls) == 1

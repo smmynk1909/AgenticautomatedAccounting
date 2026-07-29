@@ -126,12 +126,8 @@ async def test_run_payroll_resumes_and_posts_after_approval() -> None:
     disbursement_call = next(c for c in mcp.calls if c[1] == "generate_disbursement_file")
     assert disbursement_call[2]["approval_token"] == "signed.jwt"
     post_call = next(c for c in mcp.calls if c[1] == "post_journal")
-    dr_total = sum(
-        float(line.get("dr", 0)) for line in post_call[2]["entry"]["lines"]
-    )
-    cr_total = sum(
-        float(line.get("cr", 0)) for line in post_call[2]["entry"]["lines"]
-    )
+    dr_total = sum(float(line.get("dr", 0)) for line in post_call[2]["entry"]["lines"])
+    cr_total = sum(float(line.get("cr", 0)) for line in post_call[2]["entry"]["lines"])
     assert dr_total == cr_total  # balanced posting (doc 06 §7 test 2)
     assert any(c[1] == "notify_user" for c in mcp.calls)
 
@@ -250,9 +246,7 @@ async def test_record_expense_above_threshold_awaits_approval() -> None:
     llm = FakeLLM(
         [
             LLMResponse(
-                content=json.dumps(
-                    {"vendor": "Big Vendor", "total": "50000", "date": "2026-06-10"}
-                )
+                content=json.dumps({"vendor": "Big Vendor", "total": "50000", "date": "2026-06-10"})
             )
         ]
     )

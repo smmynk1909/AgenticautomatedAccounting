@@ -83,9 +83,7 @@ def upgrade() -> None:
             primary_key=True,
             server_default=sa.text("gen_random_uuid()"),
         ),
-        sa.Column(
-            "entry_id", sa.String(36), sa.ForeignKey("journal_entries.id"), nullable=False
-        ),
+        sa.Column("entry_id", sa.String(36), sa.ForeignKey("journal_entries.id"), nullable=False),
         sa.Column("account", sa.String(10), sa.ForeignKey("accounts.code"), nullable=False),
         sa.Column("dr", sa.Numeric(14, 2), nullable=False, server_default="0"),
         sa.Column("cr", sa.Numeric(14, 2), nullable=False, server_default="0"),

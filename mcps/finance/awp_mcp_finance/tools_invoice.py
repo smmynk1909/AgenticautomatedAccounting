@@ -42,9 +42,7 @@ def register_invoice_tools(server: AwpMcpServer, uow: UnitOfWork, redis: Redis) 
         fy = payload.get("fy")
         client = payload.get("client")
         if not raw_lines or not gst_ctx or not fy or not client:
-            raise ValidationError(
-                "compute_invoice requires 'lines', 'gst_context', 'fy', 'client'"
-            )
+            raise ValidationError("compute_invoice requires 'lines', 'gst_context', 'fy', 'client'")
 
         lines = [
             InvoiceLineItem(

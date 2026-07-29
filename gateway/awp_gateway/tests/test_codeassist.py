@@ -52,12 +52,8 @@ async def test_chat_completions_dispatches_code_assist_session(
 
 
 @pytest.mark.asyncio
-async def test_chat_completions_raises_on_task_failure(
-    client: AsyncClient, mcp: FakeMCP
-) -> None:
-    mcp._handlers[("erp", "get_task_status")] = {
-        "task": {"status": "failed", "result": None}
-    }
+async def test_chat_completions_raises_on_task_failure(client: AsyncClient, mcp: FakeMCP) -> None:
+    mcp._handlers[("erp", "get_task_status")] = {"task": {"status": "failed", "result": None}}
     r = await client.post("/v1/chat/completions", json=_request(), headers=_headers())
     assert r.status_code == 502
 
@@ -75,9 +71,7 @@ async def test_chat_completions_times_out(
 
 @pytest.mark.asyncio
 async def test_chat_completions_requires_messages(client: AsyncClient) -> None:
-    r = await client.post(
-        "/v1/chat/completions", json=_request(messages=[]), headers=_headers()
-    )
+    r = await client.post("/v1/chat/completions", json=_request(messages=[]), headers=_headers())
     assert r.status_code == 400
 
 

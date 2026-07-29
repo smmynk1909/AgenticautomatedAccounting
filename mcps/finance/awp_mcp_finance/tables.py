@@ -104,9 +104,7 @@ fy_counters = Table(
     metadata,
     Column("fy", sa.String(7), primary_key=True),
     Column("invoice_seq", sa.Integer(), nullable=False, server_default="0"),
-    Column(
-        "updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()
-    ),
+    Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
 )
 
 expenses = Table(

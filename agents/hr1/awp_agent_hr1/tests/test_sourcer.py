@@ -51,9 +51,7 @@ async def test_get_or_build_role_profile_raises_without_jd_or_cache() -> None:
 async def test_search_internal_pool_returns_candidates() -> None:
     mcp = FakeMCP(
         handlers={
-            ("search", "search_candidates"): {
-                "candidates": [{"candidate_id": "C1", "score": 0.9}]
-            }
+            ("search", "search_candidates"): {"candidates": [{"candidate_id": "C1", "score": 0.9}]}
         }
     )
     result = await search_internal_pool(mcp, {"must_have": ["Python"]}, 10)

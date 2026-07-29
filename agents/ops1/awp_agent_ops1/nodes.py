@@ -68,9 +68,7 @@ def make_assign_employee_project_node(mcp: MCPLike) -> Node:
             "query_allocations",
             {"emp_id": emp_id, "active_on": from_date},
         )
-        conflict = worktracker.check_allocation_conflict(
-            existing.get("allocations", []), pct
-        )
+        conflict = worktracker.check_allocation_conflict(existing.get("allocations", []), pct)
 
         approval = await mcp.call(
             "approvals",
@@ -160,9 +158,7 @@ def make_project_health_report_node(llm: LLMLike, mcp: MCPLike) -> Node:
         today = datetime.now(UTC).date()
 
         project = await mcp.call("erp", "get_project", {"project_id": project_id})
-        milestones_result = await mcp.call(
-            "erp", "query_milestones", {"project_id": project_id}
-        )
+        milestones_result = await mcp.call("erp", "query_milestones", {"project_id": project_id})
         work_logs_result = await mcp.call("erp", "query_work_logs", {"project_id": project_id})
         milestones = _coerce_milestone_dates(milestones_result.get("milestones", []))
         work_logs = work_logs_result.get("work_logs", [])
@@ -266,9 +262,7 @@ def make_timeline_risk_scan_node(mcp: MCPLike) -> Node:
         projects_result = await mcp.call("erp", "query_projects", {"status": "active"})
         milestones_by_project: dict[str, list[dict[str, Any]]] = {}
         for project in projects_result.get("projects", []):
-            m_result = await mcp.call(
-                "erp", "query_milestones", {"project_id": project["id"]}
-            )
+            m_result = await mcp.call("erp", "query_milestones", {"project_id": project["id"]})
             milestones_by_project[project["id"]] = _coerce_milestone_dates(
                 m_result.get("milestones", [])
             )

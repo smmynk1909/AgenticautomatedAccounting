@@ -59,9 +59,7 @@ async def test_reconcile_bank_auto_matches_against_posted_entry(
         "reconcile_bank",
         {
             "stmt_id": "STMT-2",
-            "bank_txns": [
-                {"id": "B1", "date": "2026-06-05", "amount": "5000.00", "ref": "INV-9"}
-            ],
+            "bank_txns": [{"id": "B1", "date": "2026-06-05", "amount": "5000.00", "ref": "INV-9"}],
         },
         _headers(_token()),
     )

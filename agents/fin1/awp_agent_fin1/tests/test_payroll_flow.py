@@ -19,9 +19,7 @@ def test_fy_for_month_january() -> None:
 async def test_gather_employees_filters_by_ids() -> None:
     mcp = FakeMCP(
         handlers={
-            ("erp", "query_employees"): {
-                "employees": [{"emp_id": "EMP-1"}, {"emp_id": "EMP-2"}]
-            }
+            ("erp", "query_employees"): {"employees": [{"emp_id": "EMP-1"}, {"emp_id": "EMP-2"}]}
         }
     )
     result = await payroll_flow.gather_employees_for_payroll(mcp, ["EMP-2"])
@@ -31,9 +29,7 @@ async def test_gather_employees_filters_by_ids() -> None:
 async def test_gather_employees_no_filter_returns_all() -> None:
     mcp = FakeMCP(
         handlers={
-            ("erp", "query_employees"): {
-                "employees": [{"emp_id": "EMP-1"}, {"emp_id": "EMP-2"}]
-            }
+            ("erp", "query_employees"): {"employees": [{"emp_id": "EMP-1"}, {"emp_id": "EMP-2"}]}
         }
     )
     result = await payroll_flow.gather_employees_for_payroll(mcp, None)
@@ -41,9 +37,7 @@ async def test_gather_employees_no_filter_returns_all() -> None:
 
 
 async def test_build_comp_snapshot_row_splits_band_mid() -> None:
-    mcp = FakeMCP(
-        handlers={("erp", "query_policies"): {"policies": [{"mid": "1200000"}]}}
-    )
+    mcp = FakeMCP(handlers={("erp", "query_policies"): {"policies": [{"mid": "1200000"}]}})
     row = await payroll_flow.build_comp_snapshot_row(mcp, {"emp_id": "EMP-1", "grade": "E3"})
     # monthly = 1200000/12 = 100000; basic 50%=50000.00, hra 20%=20000.00, special 30%=30000.00
     assert row["basic"] == "50000.00"

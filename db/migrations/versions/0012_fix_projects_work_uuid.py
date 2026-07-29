@@ -83,8 +83,6 @@ def downgrade() -> None:
     for table, fkey in _PROJECT_ID_FKEYS:
         op.drop_constraint(fkey, table, type_="foreignkey")
     for table, column in _ALTERS:
-        op.execute(
-            f"ALTER TABLE {table} ALTER COLUMN {column} TYPE UUID USING {column}::uuid"
-        )
+        op.execute(f"ALTER TABLE {table} ALTER COLUMN {column} TYPE UUID USING {column}::uuid")
     for table, fkey in _PROJECT_ID_FKEYS:
         op.create_foreign_key(fkey, table, "projects", ["project_id"], ["id"])

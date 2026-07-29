@@ -31,18 +31,14 @@ async def test_create_issue_round_trips(projects_server: AwpMcpServer) -> None:
     assert created["severity"] == "S1"
     assert created["status"] == "open"
 
-    fetched = await projects_server.dispatch_raw(
-        "get_issue", {"issue_id": created["id"]}, _read()
-    )
+    fetched = await projects_server.dispatch_raw("get_issue", {"issue_id": created["id"]}, _read())
     assert fetched["description"] == "milestone slipping"
 
 
 @pytest.mark.asyncio
 async def test_create_issue_requires_fields(projects_server: AwpMcpServer) -> None:
     with pytest.raises(ValidationError):
-        await projects_server.dispatch_raw(
-            "create_issue", {"project_id": "P1"}, _write()
-        )
+        await projects_server.dispatch_raw("create_issue", {"project_id": "P1"}, _write())
 
 
 @pytest.mark.asyncio

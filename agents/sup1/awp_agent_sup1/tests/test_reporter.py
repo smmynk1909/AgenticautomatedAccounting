@@ -31,9 +31,7 @@ async def test_open_ticket_counts_sums_across_open_statuses() -> None:
 async def test_push_daily_dashboard_calls_push_dashboard_item() -> None:
     mcp = FakeMCP(
         handlers={
-            ("erp", "query_tickets"): _by_status(
-                {"new": [{"category": "hr", "priority": "P2"}]}
-            )
+            ("erp", "query_tickets"): _by_status({"new": [{"category": "hr", "priority": "P2"}]})
         }
     )
     counts = await reporter.push_daily_dashboard(mcp)

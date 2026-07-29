@@ -100,9 +100,7 @@ async def test_upsert_and_query_milestones_coerces_due_date(erp_server: AwpMcpSe
 
 
 @pytest.mark.asyncio
-async def test_upsert_and_query_allocations(
-    erp_server: AwpMcpServer, emp1: str
-) -> None:
+async def test_upsert_and_query_allocations(erp_server: AwpMcpServer, emp1: str) -> None:
     project = await erp_server.dispatch_raw(
         "upsert_project", {"record": {"client": "Acme"}}, _write()
     )

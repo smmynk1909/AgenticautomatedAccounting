@@ -54,8 +54,7 @@ def validate_plan(plan: dict[str, Any], registry: IntentRegistry) -> list[Valida
             raise ValidationError(f"unknown agent in plan: {t.get('agent')!r}") from exc
         if plan_agent != spec.agent:
             raise ValidationError(
-                f"plan routes {intent} to {plan_agent.value!r}, "
-                f"registry says {spec.agent.value!r}"
+                f"plan routes {intent} to {plan_agent.value!r}, registry says {spec.agent.value!r}"
             )
 
         payload = t.get("payload", {})

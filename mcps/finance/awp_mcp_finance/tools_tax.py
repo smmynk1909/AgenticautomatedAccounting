@@ -67,9 +67,7 @@ def register_tax_tools(server: AwpMcpServer, uow: UnitOfWork) -> None:
         regime = payload.get("regime")
         gross_annual = payload.get("gross_annual")
         if not fy or not regime or gross_annual is None:
-            raise ValidationError(
-                "compute_tds_projection requires 'fy', 'regime', 'gross_annual'"
-            )
+            raise ValidationError("compute_tds_projection requires 'fy', 'regime', 'gross_annual'")
         tables = load_tax_tables(datetime.now(UTC).date())
         income = AnnualIncome(
             gross_annual=Decimal(str(gross_annual)),

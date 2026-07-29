@@ -187,9 +187,7 @@ async def test_generate_disbursement_file_succeeds_with_token(
         _headers(_token()),
     )
     totals = computed["register"]["totals"]
-    token = _approval(
-        "payroll_run", {"register_id": frozen["snapshot_id"], "totals": totals}
-    )
+    token = _approval("payroll_run", {"register_id": frozen["snapshot_id"], "totals": totals})
     result = await finance_server.dispatch_raw(
         "generate_disbursement_file",
         {"register_id": frozen["snapshot_id"], "approval_token": token},

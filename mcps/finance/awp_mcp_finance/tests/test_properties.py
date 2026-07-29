@@ -57,9 +57,7 @@ async def test_fuzz_random_postings_never_unbalance(finance_server: AwpMcpServer
         }
 
         try:
-            await finance_server.dispatch_raw(
-                "post_journal", {"entry": entry}, _headers(_token())
-            )
+            await finance_server.dispatch_raw("post_journal", {"entry": entry}, _headers(_token()))
             posted += 1
         except ValidationError:
             rejected += 1

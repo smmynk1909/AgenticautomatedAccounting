@@ -49,17 +49,13 @@ def build_graph(llm: Any, mcp: Any) -> Any:
     graph.add_node("source_candidates", n.make_source_candidates_node(llm, mcp))
     graph.add_node("audit_resume", n.make_audit_resume_node(mcp))
     graph.add_node("shortlist_role", n.make_shortlist_role_node(llm, mcp))
-    graph.add_node(
-        "check_shortlist_role_approval", n.make_check_shortlist_role_approval_node(mcp)
-    )
+    graph.add_node("check_shortlist_role_approval", n.make_check_shortlist_role_approval_node(mcp))
     graph.add_node("prepare_negotiation", n.make_prepare_negotiation_node(llm, mcp))
     graph.add_node(
         "check_prepare_negotiation_approval", n.make_check_prepare_negotiation_approval_node(mcp)
     )
     graph.add_node("plan_training", n.make_plan_training_node(mcp))
-    graph.add_node(
-        "check_plan_training_approval", n.make_check_plan_training_approval_node(mcp)
-    )
+    graph.add_node("check_plan_training_approval", n.make_check_plan_training_approval_node(mcp))
     graph.add_node("respond", n.n_respond)
 
     all_node_names = set(_INTENT_TO_NODE.values()) | set(_AWAITING_TO_CHECK_NODE.values())

@@ -25,9 +25,7 @@ def register_patch_tools(server: AwpMcpServer, uow: UnitOfWork) -> None:
         patch_text = payload.get("patch")
         rationale = payload.get("rationale")
         if not repo or not base_ref or not patch_text or not rationale:
-            raise ValidationError(
-                "suggest_patch requires 'repo', 'base_ref', 'patch', 'rationale'"
-            )
+            raise ValidationError("suggest_patch requires 'repo', 'base_ref', 'patch', 'rationale'")
         patch_id = str(uuid.uuid4())
         async with uow() as session:
             await PatchArtifactRepo(session).insert(
@@ -50,8 +48,7 @@ def register_patch_tools(server: AwpMcpServer, uow: UnitOfWork) -> None:
         findings = scan_text(text)
         return {
             "findings": [
-                {"kind": f.kind, "line": f.line, "match_preview": f.match_preview}
-                for f in findings
+                {"kind": f.kind, "line": f.line, "match_preview": f.match_preview} for f in findings
             ],
             "clean": not findings,
             "redacted_text": redact_text(text),

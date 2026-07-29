@@ -56,9 +56,7 @@ def load_jobs(path: Path = JOBS_YAML) -> list[JobSpec]:
         payload_fn = j.get("payload_fn")
         fan_out = j.get("fan_out")
         if bool(payload_fn) == bool(fan_out):
-            raise ValueError(
-                f"job {j['name']!r} must set exactly one of 'payload_fn'/'fan_out'"
-            )
+            raise ValueError(f"job {j['name']!r} must set exactly one of 'payload_fn'/'fan_out'")
         jobs.append(
             JobSpec(
                 name=j["name"],

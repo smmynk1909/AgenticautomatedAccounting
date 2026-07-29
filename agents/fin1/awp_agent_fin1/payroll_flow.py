@@ -60,7 +60,7 @@ async def build_comp_snapshot_row(mcp: MCPLike, employee: dict[str, Any]) -> dic
 
 
 def fy_for_month(month: str) -> str:
-    """"YYYY-MM" -> Indian FY string "YYYY-YY+1", e.g. "2026-06" -> "2026-27"."""
+    """ "YYYY-MM" -> Indian FY string "YYYY-YY+1", e.g. "2026-06" -> "2026-27"."""
     year, mon = (int(p) for p in month.split("-"))
     fy_start = year if mon >= 4 else year - 1
     return f"{fy_start}-{str(fy_start + 1)[-2:]}"

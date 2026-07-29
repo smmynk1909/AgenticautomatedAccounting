@@ -52,9 +52,7 @@ async def test_get_file_denies_out_of_scope_principal(docs_server: AwpMcpServer)
     # A service principal (mint_service_jwt) always carries roles=[] — it
     # never intersects a non-"public" scope, so this exercises the deny path.
     with pytest.raises(PermissionDeniedError):
-        await docs_server.dispatch_raw(
-            "get_file", {"uri": stored["uri"]}, _headers(_read_token())
-        )
+        await docs_server.dispatch_raw("get_file", {"uri": stored["uri"]}, _headers(_read_token()))
 
 
 @pytest.mark.asyncio

@@ -36,8 +36,10 @@ class PeriodRepo(RepoBase):
 
     async def open_periods(self) -> frozenset[str]:
         rows = (
-            await self.session.execute(select(periods.c.period).where(periods.c.status == "open"))
-        ).scalars().all()
+            (await self.session.execute(select(periods.c.period).where(periods.c.status == "open")))
+            .scalars()
+            .all()
+        )
         return frozenset(rows)
 
 

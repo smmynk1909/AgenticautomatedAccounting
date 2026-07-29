@@ -67,9 +67,7 @@ def upgrade() -> None:
             primary_key=True,
             server_default=sa.text("gen_random_uuid()"),
         ),
-        sa.Column(
-            "project_id", sa.String(36), sa.ForeignKey("projects.id"), nullable=False
-        ),
+        sa.Column("project_id", sa.String(36), sa.ForeignKey("projects.id"), nullable=False),
         sa.Column("title", sa.String(200), nullable=False),
         sa.Column("due", sa.Date(), nullable=True),
         sa.Column("acceptance", pg.JSONB(), nullable=False, server_default="{}"),
@@ -88,9 +86,7 @@ def upgrade() -> None:
             server_default=sa.text("gen_random_uuid()"),
         ),
         sa.Column("emp_id", sa.String(20), sa.ForeignKey("employees.emp_id"), nullable=False),
-        sa.Column(
-            "project_id", sa.String(36), sa.ForeignKey("projects.id"), nullable=False
-        ),
+        sa.Column("project_id", sa.String(36), sa.ForeignKey("projects.id"), nullable=False),
         sa.Column("pct", sa.Numeric(5, 2), nullable=False),
         sa.Column("from_date", sa.Date(), nullable=False),
         sa.Column("to_date", sa.Date(), nullable=True),
@@ -108,9 +104,7 @@ def upgrade() -> None:
             server_default=sa.text("gen_random_uuid()"),
         ),
         sa.Column("emp_id", sa.String(20), sa.ForeignKey("employees.emp_id"), nullable=False),
-        sa.Column(
-            "project_id", sa.String(36), sa.ForeignKey("projects.id"), nullable=False
-        ),
+        sa.Column("project_id", sa.String(36), sa.ForeignKey("projects.id"), nullable=False),
         sa.Column("date", sa.Date(), nullable=False),
         sa.Column("hours", sa.Numeric(4, 2), nullable=False),
         sa.Column("task_ref", sa.String(120), nullable=True),

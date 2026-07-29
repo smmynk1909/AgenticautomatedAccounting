@@ -24,8 +24,6 @@ kb_documents = Table(
     Column("department_scope", sa.String(20), nullable=True),
     Column("as_of", sa.Date(), nullable=True),
     Column("source_uri", sa.Text(), nullable=True),
-    Column(
-        "created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()
-    ),
+    Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
     Column("deleted_at", sa.DateTime(timezone=True), nullable=True),
 )
