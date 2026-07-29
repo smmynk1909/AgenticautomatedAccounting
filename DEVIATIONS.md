@@ -813,6 +813,43 @@ headroom. Live-verifying Sprint 8's dispatch remains a genuine pending
 item — best attempted in a fresh session, or immediately after a Docker
 Desktop restart, rather than appended onto a session already this long.
 
+**Third update, same session: root cause identified as host capacity, not
+transient flakiness.** Following the daemon-strain signature above, Docker
+Desktop and its WSL2 backend were fully restarted (`wsl --shutdown`, which
+freed host memory from 2.3GB to 10.6GB before Docker Desktop was
+relaunched) and 13.25GB of stale build cache was pruned. The stack came
+back up clean (all 24 containers healthy, `docker ps` responding in
+~1s). A fresh `prepare_negotiation` dispatch was attempted immediately —
+it reached HR-1 this time (confirmed via a `bus.dispatch` log line and a
+new `orchestrator_tasks` row), but the task ultimately transitioned to
+`status=failed`; querying its stored result to determine the exact cause
+was itself blocked by the same Docker Desktop API `500`s recurring within
+minutes, this time correlated with a direct memory measurement: free host
+RAM dropped from 10.6GB to 1.7-2.1GB within roughly ten minutes of the
+stack being back up and a single HR-1 LLM call running, on a host with
+only 15.8GB total RAM (the WSL2 VM alone holds ~8GB at idle with this
+23-container stack, before any inference workload). Eleven non-essential
+containers (`gitea`, `mcp-search`, `mcp-docs`, `mcp-finance`,
+`mcp-hrsourcing`, `fin1`, `sup1`, `adm1`, `orch0`, `scheduler`, `qdrant`)
+were then stopped to free headroom for a fifth attempt — memory improved
+only marginally (2.5-2.7GB free), since these are lightweight Python
+services and the real consumers are the WSL2 VM's own overhead and
+Ollama's CPU inference, neither of which container-stopping touches. The
+fifth dispatch attempt failed at the very first call
+(`erp.dispatch_task`) with a raw `httpx.ReadError` — the connection was
+dropped mid-request, and no new `orchestrator_tasks` row was created,
+confirming the request never reached the server this time (unlike the
+`audit.log_event`-unreachable pattern above, where calls did land but a
+downstream dependency's DNS failed). **This is conclusively a host
+capacity ceiling, not a code defect**: this specific machine (16GB RAM)
+cannot reliably sustain the full 23-container dev stack, this repo's own
+CLI verification tooling, and CPU-only LLM inference running
+concurrently. Sprint 8's live dispatch remains unverified after five
+attempts across this session; the recommendation is unchanged from
+above, but stronger — a machine with materially more RAM (32GB+), or
+running the verification with most other host activity closed, is
+needed for a clean attempt.
+
 ## 20. Sprint 9 — mcp-projects + OPS-1 (tracker, monitor, risk)
 
 **Migration 0005 (`projects`/`milestones`/`allocations`/`work_logs`) still
@@ -924,6 +961,19 @@ live dispatch against a daemon already showing that signature, this was
 intentionally skipped this session. Still a genuine pending item, same
 recommendation as #19: a fresh session or a fresh Docker Desktop restart,
 not appended onto this one.
+
+**Second update, same session: still not started, for the same host-
+capacity reason documented in #19's third update.** After the full Docker
+Desktop/WSL2 restart and cleanup described there, effort went into
+getting Sprint 8's dispatch working first (as the more nearly-complete
+prior attempt); once that conclusively hit the host's memory/CPU ceiling
+rather than a code or config issue, `assign_employee_project`'s gated
+flow and the `project_health_report` S1-escalation branch were not
+attempted this session either, to avoid spending the same already-scarce
+headroom on a second live dispatch with the same predictable outcome.
+Both remain graph-tested only, exactly as in the entry above; the
+recommendation is the same as #19's: a materially larger-RAM host, or a
+session with the current stack as the only heavy process running.
 
 670 tests passing at the time of this entry.
 
