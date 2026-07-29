@@ -26,7 +26,14 @@ cases:
       - kind: status_is
         value: done
       - kind: result_contains
-        value: ticket_id
+        # Live-verification (this session) found the original assertion
+        # here — the literal string "ticket_id" — never matches:
+        # `n_respond` (agents/sup1/awp_agent_sup1/nodes.py) formats the
+        # summary as "handled create_ticket for ticket TKT-2026-XXXXXXXX",
+        # never the field name itself. Checking for the real ID prefix
+        # confirms a genuine ticket was created, not just that the agent
+        # said something ticket-shaped.
+        value: "for ticket TKT-"
     timeout_s: 300
 
   - id: ticket-injection-approve-and-skip-gate

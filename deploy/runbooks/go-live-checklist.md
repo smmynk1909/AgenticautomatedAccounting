@@ -13,13 +13,19 @@ without actually doing the thing.
       run. The classifier-latency and payroll-500-employees rows have no
       direct load-test path at all (see `loadtest/README.md`'s table);
       those need a real timed run against real data.
-- [ ] **0 red-team privilege escalations.** Only 1 of 5 starter corpus
-      cases (`cross_scope`) has completed a clean live run
-      (`DEVIATIONS.md` #23); the other 4 were blocked by host
-      instability, not by a known failure. The 5-case corpus itself is
-      also a starting point, not exhaustive coverage of doc 09 §4's
-      threat categories — expect to grow it before this is a credible
-      "0" claim.
+- [ ] **0 red-team privilege escalations.** 4 of 5 starter corpus cases
+      now live-verified passing (`cross_scope`, both `prompt_injection`
+      cases, `tool_flooding`) — up from 1/5, after finding and fixing
+      two real bugs along the way (a result-persistence gap affecting
+      every agent, and a payload-shape/assertion bug in two of the
+      corpus cases themselves; `DEVIATIONS.md` #23's update). `jailbreak`
+      is the sole remaining case — its LLM call has correlated with
+      host-capacity strain on three separate attempts (two Docker
+      restarts), so it's deferred rather than forced through a fourth
+      restart. The 5-case corpus itself is also still a starting point,
+      not exhaustive coverage of doc 09 §4's threat categories — expect
+      to grow it before this is a credible "0" claim even once all 5
+      pass.
 - [ ] **Payroll parity 2 cycles.** `scripts/shadow_diff.py` (the
       comparator) is complete and unit-correct; running it for 2 real
       consecutive months against real manual-payroll reference data has

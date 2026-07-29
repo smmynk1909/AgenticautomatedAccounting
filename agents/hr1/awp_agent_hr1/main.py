@@ -71,8 +71,20 @@ async def _main() -> None:
     async def mirror_status(env: TaskEnvelope, result: TaskResult) -> None:
         # Safety net for graph-level crashes HR-1's own `respond` node
         # never reaches — see AgentApp.__init__'s `on_result` docstring.
+        # Also the *only* path that ever persists `result.summary` — no
+        # node anywhere calls `update_task` on the happy path either, so
+        # `get_task_status` returned `result: None` for every completed
+        # task until this included it (DEVIATIONS.md; same gap
+        # `agents/ops1/awp_agent_ops1/main.py` fixed in Sprint 10 and
+        # flagged as "almost certainly exists" everywhere else).
         await mcp.call(
-            "erp", "update_task", {"task_id": str(env.task_id), "status": result.status.value}
+            "erp",
+            "update_task",
+            {
+                "task_id": str(env.task_id),
+                "status": result.status.value,
+                "result": {"summary": result.summary},
+            },
         )
 
     graph = build_graph(llm, mcp)

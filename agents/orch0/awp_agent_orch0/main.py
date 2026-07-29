@@ -66,9 +66,18 @@ async def _main() -> None:
         # Safety net for paths `graph.py`'s own `respond` node never reaches
         # (a graph-level crash, e.g. all LLM retries exhausted) — see
         # `AgentApp.__init__`'s `on_result` docstring. Harmless if `respond`
-        # already set the same status (plain idempotent UPDATE).
+        # already set the same status (plain idempotent UPDATE). Also the
+        # *only* path that ever persists `result.summary` for this
+        # top-level task — see the same note in
+        # agents/hr1/awp_agent_hr1/main.py.
         await mcp.call(
-            "erp", "update_task", {"task_id": str(env.task_id), "status": result.status.value}
+            "erp",
+            "update_task",
+            {
+                "task_id": str(env.task_id),
+                "status": result.status.value,
+                "result": {"summary": result.summary},
+            },
         )
 
     registry = IntentRegistry()
