@@ -7,7 +7,8 @@ never imported by that server's own tests).
 from __future__ import annotations
 
 from awp_shared.errors import AwpError
-from fastapi import FastAPI, Request
+from awp_shared.metrics import CONTENT_TYPE_LATEST, render_latest
+from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse
 
 from awp_gateway.deps import GatewayState
@@ -57,4 +58,13 @@ def create_app(state: GatewayState) -> FastAPI:
     app.include_router(approvals.router)
     app.include_router(codeassist.router)
     app.include_router(ws_router)
+
+    @app.get("/healthz")
+    async def healthz() -> dict[str, str]:
+        return {"service": "gateway"}
+
+    @app.get("/metrics")
+    async def metrics() -> Response:
+        return Response(content=render_latest(), media_type=CONTENT_TYPE_LATEST)
+
     return app

@@ -1,0 +1,64 @@
+{
+  "uid": "awp-finance",
+  "title": "AWP / Finance (FIN-1)",
+  "tags": ["awp"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": { "from": "now-6h", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "title": "FIN-1 task outcomes by intent",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [
+        {
+          "expr": "sum by (intent, status) (rate(awp_agent_tasks_total{agent=\"FIN-1\"}[5m]))",
+          "legendFormat": "{{intent}} / {{status}}"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "mcp-finance tool call rate",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [
+        {
+          "expr": "sum by (tool, status) (rate(awp_mcp_tool_calls_total{server=\"finance\"}[5m]))",
+          "legendFormat": "{{tool}} / {{status}}"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "compute_payroll duration p95",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(awp_mcp_tool_call_duration_seconds_bucket{server=\"finance\", tool=\"compute_payroll\"}[15m])))",
+          "legendFormat": "p95"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "payroll_run / expense_posting approval-gated failures",
+      "type": "stat",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [
+        {
+          "expr": "sum by (tool) (increase(awp_mcp_tool_calls_total{server=\"finance\", status=\"APPROVAL_REQUIRED\"}[1h]))",
+          "legendFormat": "{{tool}}"
+        }
+      ]
+    }
+  ]
+}

@@ -1437,3 +1437,158 @@ counts (`employees=40`, `tickets=6`, `journal_entries=55`, `projects=16`)
 to match **exactly** — in 26 seconds total, several orders of magnitude
 under the 4-hour RTO budget. The live dev database was never touched by
 the drill.
+
+## 25. Sprint 11 (completion) + Sprint 12 — observability, load test, kill-switch, runbooks, go-live hardening
+
+**Scope note, read first**: this entry covers a single working session
+whose explicit, direct instruction was *implementation only* — "do not
+test it, I will buy a server for this and then we will work on the
+testing and enhancements." Every previous entry in this file describes
+work that was live-verified against the real running Docker stack, per
+this project's own established discipline; this entry deliberately
+breaks that pattern, on explicit instruction, because the same session
+had just spent hours proving this dev host cannot reliably sustain the
+full stack under concurrent load (see #19's third update, #20's second
+update, `deploy/runbooks/degraded-cpu-mode.md`). Static checks only
+(`ruff check`, `mypy` — both clean on every touched file) were run; no
+`pytest`, no `docker compose up`, no live dispatch. Treat everything
+below as **code-complete, not proven** until it's actually run.
+
+**Observability (doc 10 HLD C19, doc 00 §7).** `deploy/observability/`
+gained `otel-collector.yml`, `prometheus.yml`, `loki.yml`,
+`promtail.yml`, and Grafana provisioning + 4 dashboards
+(`agents.json`, `llm.json`, `tickets.json`, `finance.json`, per doc 12
+§2's named tree) — `deploy/docker-compose.dev.yml` gained matching
+`otel-collector`/`prometheus`/`loki`/`promtail`/`grafana` services (29
+services total now). `shared/awp_shared/metrics.py` is new
+(`prometheus-client`, a required dependency now, not optional — pure
+in-process bookkeeping, no network calls of its own). Wired into the
+three real choke points every request/task/LLM-call already passes
+through: `ToolPipeline.dispatch` (every MCP tool call, any server),
+`AgentApp.handle` (every agent task), `LLM.chat` (every model call) —
+same pattern `awp_shared.tracing.start_span` already used as a no-op
+scaffold since it was written (Sprint unspecified, predates this
+session). `tracing.py`'s `otel` extra now actually gets installed:
+every one of this repo's 17 Dockerfiles was changed from `pip install
+./shared ...` to `pip install './shared[otel]' ...`, and
+`OTEL_EXPORTER_OTLP_ENDPOINT` is now set for all 17 app services in
+compose (previously present in `.env.example` as a documented no-op).
+The 6 bus-consumer agents plus the scheduler have no HTTP server
+otherwise, so `agents/_base/awp_agent_base/metrics_server.py` is a
+stdlib-only (`http.server`, no new dependency) `/metrics` listener on
+:9100 each one now starts alongside its consume loop.
+`LLM.chat` also gained doc 00 §7's "LLM calls logged with prompt/
+response hashes" (sha256, never raw content — safe for a shared log
+aggregator).
+
+**Trace storage gap, named honestly**: the otel-collector's trace
+pipeline exports to the `debug` exporter only — no docs/ file names a
+trace-storage backend (Tempo/Jaeger/etc.), so none was invented; traces
+are structurally correct end-to-end (every span really is created and
+really would export) but only visible via `docker compose logs
+otel-collector` today, not queryable in Grafana. Swapping in a real
+backend later is an addition to `otel-collector.yml`'s
+exporters/pipelines section, not a call-site change anywhere.
+
+**Load test (doc 10 §6, doc 12 §4).** `loadtest/smoke.js` (the CI-named
+"k6 smoke, 50 VU, 5 min") and `loadtest/ticket_volume.js` (a scaled-rate
+proxy for the "1,000 tickets/day" NFR — see the script's own header for
+the exact scaling, it is not a literal 24h run). `loadtest/README.md`
+maps every doc 10 §6 NFR row to what covers it; two rows have no k6
+coverage by design (classifier latency — an internal agent-graph step,
+not a gateway endpoint; payroll-500-employees — an async multi-step
+approval-gated workflow, not a synchronous HTTP call), with the
+reasoning and the alternative (Grafana panel / shadow-diff timing)
+named explicitly rather than force-fitting a fake k6 scenario onto
+either. `make loadtest-smoke` / `make loadtest-tickets` added. No CI
+wiring: `.github/workflows/ci.yml` exists but only runs lint/type/unit —
+it never brings the 24-service stack up, so there's nothing yet for a
+k6 CI job to point at; standing up a full `e2e.yml` is separate,
+un-started infrastructure work, named rather than guessed at.
+
+**Kill-switch (doc 09 §4.5, doc 12 §6 "kill-switch drill executed") —
+a real gap found and closed, not just documented.** Grepped: this
+"queue-park mode env flag per agent" was named in doc 09 §4.5 since
+before this session and never implemented in any prior sprint.
+`shared/awp_shared/bus.py`'s `TaskBus` gained `set_kill_switch`/
+`is_killed` (a Redis flag) and `consume`'s loop now checks it every 2s
+before each `XREADGROUP` — when set, the loop simply stops pulling new
+messages; nothing is acked, dropped, or partially processed, so
+whatever's already queued waits untouched ("parks") until the switch
+flips back. `scripts/kill_switch.py` is the ops CLI (`status`/`on
+<AGENT>`/`off <AGENT>`). Deliberately not an MCP tool an agent could
+call on itself — same "can't approve/control your own gate" shape as
+every HITL gate in this codebase, applied to blast-radius control
+instead. **Not drilled** (per this entry's scope note) — the mechanism
+exists, flipping it against a live agent mid-task and confirming
+parked-then-resumed behavior for real is the actual "drill," and that's
+server-testing work.
+
+**Audit chain daily verification (doc 09 §3, doc 12 §6) — another real
+gap found and closed.** `mcps/audit/awp_mcp_audit/verifier.py`'s
+Merkle-root recompute-and-compare (`verify_day`) has existed since
+Sprint 1 and was reachable via the `export_audit` tool, but nothing
+ever *called* it on a schedule — grepped `scheduler/jobs.yaml`, no
+audit-related job existed. `scheduler/awp_scheduler/auditcheck.py` is
+new: once a day (redis-deduped by date, same shape as
+`dispatcher.py`'s existing per-minute job dedupe), it calls
+`export_audit` for yesterday and, on any tampered day, escalates via
+`comms.notify_user` (director) + `erp.push_dashboard_item` (severity
+critical) — same escalation shape as HR-1/OPS-1's S1 paths, not a new
+pattern. Required adding `mcp-audit`/`mcp-comms` to the scheduler's own
+MCP client and `audit.admin`/`comms.notify` to its scopes (previously
+only `erp.*`) — the scheduler had never needed to call anything but
+mcp-erp before this.
+
+**HITL-max (doc 12 §5 Sprint 12's own name for this).** Grepped the
+entire codebase for any threshold-based auto-approve path — exactly
+one exists anywhere: `mcp-finance`'s `post_journal`, whose
+`expense_posting` gate only fires above Rs 25,000 or below 0.8
+confidence (doc 06 §2.2), auto-posting everything else. Every other
+gate in `config/gates.yaml` already fires unconditionally, so "HITL-max
+settings" needed exactly one new lever, not a new config file:
+`AWP_HITL_MAX=true` (the default in `.env.example`, matching the
+"start maximally conservative" doc 09 §6 progression) forces that one
+gate regardless of amount/confidence, without deleting the threshold
+constants — flipping the env var back off after trust is built doesn't
+require different logic, just a different flag value. `.env`'s working
+dev copy defaults it to `false` so normal dev iteration isn't affected
+by a go-live-specific posture.
+
+**Runbooks + go-live checklist + 30-day stabilization plan (doc 12 §2's
+named tree, doc 12 §6's exit checklist).** `deploy/runbooks/` gained
+all 6 files doc 12 §2 names: `incident.md`, `restore-drill.md`,
+`model-upgrade.md`, `degraded-cpu-mode.md`, `secrets-rotation.md`,
+`go-live-checklist.md`, plus `stabilization-plan.md` (Sprint 12's "30-
+day stabilization plan," doc 12 §6's "30-day rollback plan documented"
+— the same document covers both directions of the same lever:
+`AWP_HITL_MAX` + `config/gates.yaml`). `degraded-cpu-mode.md` is worth
+calling out specifically: it's not generic advice, it's this session's
+own real incident (the Docker Desktop/WSL2 capacity exhaustion
+documented in #19/#20) turned into a runbook, including the actual
+memory numbers observed and the fix sequence that actually worked. The
+go-live checklist is deliberately honest, not aspirational — it
+transcribes doc 12 §6's exact 12 items and checks exactly 2 of them
+(`restore drill < RTO`, already live-verified in #24; `30-day rollback
+plan documented`, this entry), leaving the rest unchecked with a
+specific reason each: some are code-complete-but-unverified (this
+entry's scope note), some are business/compliance sign-offs no repo can
+provide (CA tax-table sign-off, dept-head sign-offs, ops review of the
+runbooks themselves), and one (payroll parity 2 cycles) needs real
+manual-payroll reference data this dev environment has never had.
+
+**Payroll shadow-diff cycles — status unchanged, restated for
+clarity.** `scripts/shadow_diff.py` (the comparator) has been complete
+since Sprint 6; "2 clean cycles" was always a business-process gate
+(run the harness against 2 real consecutive months' real manual
+payroll), not a code deliverable — there was nothing to build here this
+session, only to confirm the gap is accurately reflected in the go-live
+checklist above rather than silently dropped.
+
+735 tests still passing as of the last actual run (`DEVIATIONS.md` #24)
+— unchanged by this entry, since nothing here added or ran tests
+(scope note above). `ruff check .`/`mypy` were run per-file on every
+touched file (all clean); a full workspace `uv run ruff check .` /
+`uv run mypy .` / `uv run pytest` pass has **not** been done against
+this entry's changes and should be the very first thing run once a
+server is available, before any live-dispatch work resumes.

@@ -12,7 +12,7 @@ COPY mcps/_base/ mcps/_base/
 COPY mcps/comms/ mcps/comms/
 COPY config/ config/
 
-RUN pip install --no-cache-dir ./shared ./mcps/_base ./mcps/comms
+RUN pip install --no-cache-dir './shared[otel]' ./mcps/_base ./mcps/comms
 
 ENV AWP_CONFIG_DIR=/app/config
 

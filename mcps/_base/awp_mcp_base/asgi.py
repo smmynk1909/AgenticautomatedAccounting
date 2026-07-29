@@ -9,7 +9,8 @@ from __future__ import annotations
 from typing import Any
 
 from awp_shared.errors import AwpError
-from fastapi import FastAPI, Request
+from awp_shared.metrics import CONTENT_TYPE_LATEST, render_latest
+from fastapi import FastAPI, Request, Response
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 
@@ -33,6 +34,10 @@ def build_asgi_app(server: AwpMcpServer) -> FastAPI:
     @app.get("/healthz")
     async def healthz() -> dict[str, Any]:
         return {"server": server.name, "tools": server.tool_names}
+
+    @app.get("/metrics")
+    async def metrics() -> Response:
+        return Response(content=render_latest(), media_type=CONTENT_TYPE_LATEST)
 
     @app.post("/tools/{tool_name}")
     async def call_tool(tool_name: str, request: Request) -> JSONResponse:

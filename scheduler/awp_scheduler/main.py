@@ -13,6 +13,7 @@ from datetime import UTC, datetime
 
 import structlog
 from awp_agent_base.checkpoint import CheckpointStore
+from awp_agent_base.metrics_server import start_metrics_server
 from awp_agent_orch0.intent_registry import IntentRegistry
 from awp_mcp_base.uow import UnitOfWork, make_engine
 from awp_shared.auth import mint_service_jwt
@@ -22,14 +23,23 @@ from awp_shared.mcpc import MCP
 from awp_shared.schemas import AgentId
 from redis.asyncio import Redis
 
+from awp_scheduler.auditcheck import verify_audit_chain_daily
 from awp_scheduler.dispatcher import dispatch_due_jobs, reconcile_sweep
 from awp_scheduler.jobs import JobSpec, load_jobs
 
 logger = structlog.get_logger(__name__)
 
 POLL_INTERVAL_S = 60
+AUDIT_VERIFY_DEDUPE_TTL_S = 25 * 3600  # > 1 day, so a mid-day restart can't re-fire today's check
 
-SCOPES = ["erp.tasks.dispatch", "erp.tasks.read", "erp.tasks.write", "erp.dashboard.write"]
+SCOPES = [
+    "erp.tasks.dispatch",
+    "erp.tasks.read",
+    "erp.tasks.write",
+    "erp.dashboard.write",
+    "audit.admin",
+    "comms.notify",
+]
 
 
 async def _tick(
@@ -44,6 +54,10 @@ async def _tick(
     await dispatch_due_jobs(jobs, now, mcp, bus, redis, registry)
     await reconcile_sweep(mcp, bus, checkpoints)
 
+    dedupe_key = f"sched:audit_verify:{now:%Y%m%d}"
+    if await redis.set(dedupe_key, "1", nx=True, ex=AUDIT_VERIFY_DEDUPE_TTL_S):
+        await verify_audit_chain_daily(mcp, now.date())
+
 
 async def _main() -> None:
     validate_all()
@@ -57,9 +71,15 @@ async def _main() -> None:
     bus = TaskBus(redis)
 
     mcp = MCP(
-        {"erp": os.environ["MCP_ERP_URL"]},
+        {
+            "erp": os.environ["MCP_ERP_URL"],
+            "audit": os.environ["MCP_AUDIT_URL"],
+            "comms": os.environ["MCP_COMMS_URL"],
+        },
         principal_jwt_provider=lambda: mint_service_jwt(AgentId.SCHEDULER.value, SCOPES),
     )
+
+    start_metrics_server()  # doc 10 HLD C19: Prometheus scrapes this at :9100/metrics
 
     while True:
         try:

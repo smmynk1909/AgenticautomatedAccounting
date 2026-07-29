@@ -1,0 +1,71 @@
+{
+  "uid": "awp-llm",
+  "title": "AWP / LLM (Ollama)",
+  "tags": ["awp"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": { "from": "now-6h", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "title": "LLM call rate by model/status",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [
+        {
+          "expr": "sum by (model, status) (rate(awp_llm_calls_total[5m]))",
+          "legendFormat": "{{model}} / {{status}}"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "LLM call latency (p50/p95/p99) by model",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum by (model, le) (rate(awp_llm_call_duration_seconds_bucket[5m])))",
+          "legendFormat": "{{model}} p50"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (model, le) (rate(awp_llm_call_duration_seconds_bucket[5m])))",
+          "legendFormat": "{{model}} p95"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum by (model, le) (rate(awp_llm_call_duration_seconds_bucket[5m])))",
+          "legendFormat": "{{model}} p99"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Error rate by model (last 15m)",
+      "type": "stat",
+      "gridPos": { "h": 6, "w": 24, "x": 0, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [
+        {
+          "expr": "sum by (model) (rate(awp_llm_calls_total{status=\"error\"}[15m])) / sum by (model) (rate(awp_llm_calls_total[15m]))",
+          "legendFormat": "{{model}}"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "llm.call log lines (hashed prompt/response, doc 00 §7)",
+      "type": "logs",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 14 },
+      "datasource": { "type": "loki", "uid": "Loki" },
+      "targets": [
+        {
+          "expr": "{container=~\"deploy-(orch0|adm1|fin1|hr1|ops1|sup1)-1\"} |= \"llm.call\""
+        }
+      ]
+    }
+  ]
+}

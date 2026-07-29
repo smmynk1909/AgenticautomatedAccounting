@@ -10,7 +10,9 @@ a real vLLM `model-gw` later is a config change, not a code change.
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
+import time
 from typing import Any
 
 import httpx
@@ -19,8 +21,15 @@ from pydantic import BaseModel
 from pydantic import ValidationError as PydanticValidationError
 
 from awp_shared.errors import UpstreamError, ValidationError
+from awp_shared.metrics import llm_call_duration_seconds, llm_calls_total
+from awp_shared.tracing import start_span
 
 logger = structlog.get_logger(__name__)
+
+
+def _sha256(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
 
 # doc 01 §3 sampling defaults, keyed by task type. `models.yaml` carries the
 # same table for ops/config visibility; this literal is the code-level
@@ -126,11 +135,34 @@ class LLM:
                 },
             }
 
-        raw = await self._post_with_retries(body)
-        resp = self._parse(raw)
+        prompt_hash = _sha256(json.dumps(messages, sort_keys=True, default=str))
+        start = time.monotonic()
+        status = "ok"
+        try:
+            with start_span("llm.chat", model=self._model):
+                raw = await self._post_with_retries(body)
+                resp = self._parse(raw)
 
-        if guided_json is not None and resp.content is not None:
-            resp = await self._repair_if_invalid_json(body, resp, guided_json)
+                if guided_json is not None and resp.content is not None:
+                    resp = await self._repair_if_invalid_json(body, resp, guided_json)
+        except Exception:
+            status = "error"
+            raise
+        finally:
+            duration = time.monotonic() - start
+            llm_calls_total.labels(self._model, status).inc()
+            llm_call_duration_seconds.labels(self._model).observe(duration)
+            # doc 00 §7: "LLM calls logged with prompt/response hashes" — hashes,
+            # never raw content, so this line is safe to ship to a log
+            # aggregator without becoming a second copy of PII/candidate data.
+            logger.info(
+                "llm.call",
+                model=self._model,
+                status=status,
+                duration_s=round(duration, 3),
+                prompt_sha256=prompt_hash,
+                response_sha256=_sha256(resp.content or "") if status == "ok" else None,
+            )
 
         return resp
 

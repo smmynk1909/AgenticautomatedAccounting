@@ -17,11 +17,20 @@ and the rest of `docs/00`–`12`. Deviations this build takes from those docs
 Sprints 1–6, 9, 10 complete and live-verified; Sprint 7 code/tests/config
 complete and live container-verified, extraction F1 acceptance number
 under investigation (`DEVIATIONS.md` #18); Sprint 8 code/tests complete,
-live Docker verification pending (`DEVIATIONS.md` #19); Sprint 11 in
-progress — Keycloak swap-in for human auth done and live-verified
-(`DEVIATIONS.md` #22), its other six pieces (observability, backup/
-restore, red-team, load test, payroll shadow cycles, runbooks) not yet
-started (`docs/12-SOLUTIONING-REPO.md` §5).
+live Docker verification pending (`DEVIATIONS.md` #19); Sprint 9's
+`assign_employee_project`/S1-escalation live dispatch also still pending
+(`DEVIATIONS.md` #20 — same host-capacity blocker as #19, not a code
+issue). Sprint 11 code-complete across all 7 sub-pieces (Keycloak,
+red-team/eval harness, backup/restore, observability, load test,
+runbooks/go-live checklist — payroll shadow cycles are a business-process
+gate, not a code deliverable); Keycloak, backup/restore, and one red-team
+case are live-verified, the rest are implemented but **not yet live-
+verified** (`DEVIATIONS.md` #25 — deliberately deferred to a
+dedicated server, per explicit instruction, after this dev host's own
+capacity limits became the session's biggest obstacle). Sprint 12
+(HITL-max go-live posture + 30-day stabilization plan) is also code-
+complete on the same not-yet-live-verified basis. 735 tests passing as
+of the last actual full-suite run.
 
 Sprints 1–2: shared library, DB schema + seed data, `mcp-audit`,
 `mcp-approvals`, `mcp-erp` (people/assets/tickets/tasks/dashboard/policies),
@@ -338,6 +347,51 @@ same "no pytest coverage, live-run instead" pattern as
 `scripts/shadow_diff.py`/`scripts/resume_extraction_eval.py` —
 no new unit tests), ruff + mypy strict clean across every implemented
 package.
+
+Sprint 11 completion + Sprint 12 (doc 12 §5's remaining hardening
+pieces + go-live). Built in a session whose explicit scope was
+implementation only — live Docker verification deferred to a dedicated
+server, after this dev host's own memory/CPU capacity became a
+recurring blocker (`DEVIATIONS.md` #19/#20/#25). Everything below is
+code-complete and statically checked (`ruff`, `mypy` — clean), **not
+live-verified**:
+
+- **Observability** (doc 10 HLD C19): `deploy/observability/` —
+  otel-collector, Prometheus, Loki, Promtail, Grafana (4 dashboards),
+  all added to `deploy/docker-compose.dev.yml` (29 services now).
+  `shared/awp_shared/metrics.py` wires Prometheus counters/histograms
+  into the same three choke points `tracing.py`'s `start_span` already
+  used (MCP dispatch, agent task handling, LLM calls); the 6 bus-
+  consumer agents + scheduler get a minimal stdlib `/metrics` listener
+  (`agents/_base/awp_agent_base/metrics_server.py`) since they have no
+  HTTP server otherwise. Traces reach the collector but have no
+  storage backend configured — none is named anywhere in docs/, so
+  none was invented (`DEVIATIONS.md` #25).
+- **Load test** (doc 10 §6, doc 12 §4): `loadtest/smoke.js` +
+  `loadtest/ticket_volume.js` (k6), `make loadtest-smoke` /
+  `loadtest-tickets`. `loadtest/README.md` maps every NFR row to what
+  covers it, including the two rows k6 genuinely can't reach
+  (classifier latency, payroll timing) and why.
+- **Kill-switch** (doc 09 §4.5, doc 12 §6): a real, previously-missing
+  piece — `TaskBus.set_kill_switch`/`is_killed` + `scripts/kill_switch.py`.
+  Queue-park mode: an agent stops consuming new tasks, nothing already
+  queued is lost or dropped.
+- **Daily audit-chain verification** (doc 09 §3, doc 12 §6): another
+  real gap closed — `scheduler/awp_scheduler/auditcheck.py` now calls
+  the Merkle-root verifier (`mcps/audit`, existed since Sprint 1) once
+  a day and escalates on any tamper finding.
+- **HITL-max** (doc 12 §5): `AWP_HITL_MAX=true` forces `mcp-finance`'s
+  one and only threshold-based auto-approve path (`expense_posting`)
+  to always gate, for the go-live "nothing auto-approves yet" posture.
+- **Runbooks + checklists**: `deploy/runbooks/` — all 6 files doc 12
+  §2 names (`incident.md`, `restore-drill.md`, `model-upgrade.md`,
+  `degraded-cpu-mode.md`, `secrets-rotation.md`, `go-live-checklist.md`)
+  plus `stabilization-plan.md` (Sprint 12). `go-live-checklist.md`
+  transcribes doc 12 §6's exact exit checklist and is honestly mostly
+  unchecked, with a specific reason per item.
+
+Full detail, including the two real bugs found while grepping for the
+kill-switch and audit-verification gaps, in `DEVIATIONS.md` #25.
 
 ## Prerequisites
 

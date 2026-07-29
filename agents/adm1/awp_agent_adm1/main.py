@@ -9,6 +9,7 @@ import os
 
 from awp_agent_base.app import AgentApp
 from awp_agent_base.checkpoint import CheckpointStore
+from awp_agent_base.metrics_server import start_metrics_server
 from awp_mcp_base.uow import UnitOfWork, make_engine
 from awp_shared.auth import mint_service_jwt
 from awp_shared.bus import TaskBus, make_redis
@@ -74,6 +75,8 @@ async def _main() -> None:
 
     graph = build_graph(llm, mcp)
     app = AgentApp(AgentId.ADM1, graph, checkpoints, graph_name="adm1", on_result=mirror_status)
+
+    start_metrics_server()  # doc 10 HLD C19: Prometheus scrapes this agent's :9100/metrics
 
     await app.run_forever(bus, consumer_name=os.environ.get("HOSTNAME", "adm1-worker-1"))
 

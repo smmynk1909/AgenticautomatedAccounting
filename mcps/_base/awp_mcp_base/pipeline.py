@@ -15,12 +15,15 @@ handler to use.
 from __future__ import annotations
 
 import json
+import time
 from collections.abc import Awaitable, Callable
 from typing import Any
 
 from awp_shared.audit_mw import AuditMiddleware, AuditSink
 from awp_shared.auth import Principal, require_scopes, verify_jwt
-from awp_shared.errors import ValidationError
+from awp_shared.errors import AwpError, ValidationError
+from awp_shared.metrics import mcp_tool_call_duration_seconds, mcp_tool_calls_total
+from awp_shared.tracing import start_span
 from redis.asyncio import Redis
 
 from awp_mcp_base.ctx import Ctx
@@ -95,7 +98,26 @@ class ToolPipeline:
         async def call_fn() -> Any:
             return await handler(payload, ctx)
 
-        result = await mw.wrap(tool_name, raw_payload, call_fn)
+        start = time.monotonic()
+        status = "ok"
+        try:
+            with start_span(
+                f"mcp.{self._server_name}.{tool_name}",
+                trace_id=ctx.trace_id or None,
+                server=self._server_name,
+                tool=tool_name,
+            ):
+                result = await mw.wrap(tool_name, raw_payload, call_fn)
+        except AwpError as exc:
+            status = exc.code
+            raise
+        except Exception:
+            status = "internal_error"
+            raise
+        finally:
+            duration = time.monotonic() - start
+            mcp_tool_calls_total.labels(self._server_name, tool_name, status).inc()
+            mcp_tool_call_duration_seconds.labels(self._server_name, tool_name).observe(duration)
 
         if cache_key:
             await self._redis.set(cache_key, json.dumps(_to_jsonable(result)), ex=IDEMPOTENCY_TTL_S)

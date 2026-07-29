@@ -1,0 +1,52 @@
+{
+  "uid": "awp-tickets",
+  "title": "AWP / Tickets (SUP-1)",
+  "description": "No dedicated ticket-count metric exists yet (no code emits one) — every panel here is the generic awp_mcp_tool_calls_total counter filtered to mcp-erp's ticket tools (tools_tickets.py: create_ticket/update_ticket/query_tickets/append_ticket_event/link_tickets/set_summary). Real numbers, just derived rather than purpose-built; a dedicated tickets_open/tickets_by_sla_band gauge is a reasonable follow-up once there's a real ticket volume to look at.",
+  "tags": ["awp"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": { "from": "now-6h", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Ticket tool call rate",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [
+        {
+          "expr": "sum by (tool, status) (rate(awp_mcp_tool_calls_total{server=\"erp\", tool=~\"create_ticket|update_ticket|query_tickets|append_ticket_event|link_tickets|set_summary\"}[5m]))",
+          "legendFormat": "{{tool}} / {{status}}"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "create_ticket rate (new tickets/min, proxy)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [
+        {
+          "expr": "sum(rate(awp_mcp_tool_calls_total{server=\"erp\", tool=\"create_ticket\", status=\"ok\"}[5m])) * 60",
+          "legendFormat": "new tickets/min"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "SUP-1 task outcomes",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [
+        {
+          "expr": "sum by (intent, status) (rate(awp_agent_tasks_total{agent=\"SUP-1\"}[5m]))",
+          "legendFormat": "{{intent}} / {{status}}"
+        }
+      ]
+    }
+  ]
+}

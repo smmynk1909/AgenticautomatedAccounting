@@ -1,4 +1,4 @@
-.PHONY: dev up down models migrate seed test lint typecheck redteam redteam-live eval smoke bootstrap logs web web-e2e backup restore-drill
+.PHONY: dev up down models migrate seed test lint typecheck redteam redteam-live eval smoke bootstrap logs web web-e2e backup restore-drill loadtest-smoke loadtest-tickets
 
 # Recipes that run on the host (migrate/seed/smoke) need $(DATABASE_URL) etc.
 # in their own process env, not just passed to `docker compose`; `include` +
@@ -57,6 +57,12 @@ backup:  ## nightly-style pg_dump + MinIO mirror + Qdrant snapshot (needs `make 
 
 restore-drill:  ## restore the latest backup into a throwaway container and verify (doc 10 §6 NFR)
 	bash scripts/restore_drill.sh
+
+loadtest-smoke:  ## k6 smoke: 50 VU / 5 min against read endpoints (needs `make up`; doc 10 §6, doc 12 §4)
+	k6 run loadtest/smoke.js
+
+loadtest-tickets:  ## k6 sustained ticket-creation throughput proxy (needs `make up`; doc 10 §6)
+	k6 run loadtest/ticket_volume.js
 
 bootstrap:  ## one-shot: up, models, migrate, seed, smoke
 	bash scripts/dev_bootstrap.sh

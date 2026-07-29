@@ -11,7 +11,7 @@ COPY agents/_base/ agents/_base/
 COPY agents/fin1/ agents/fin1/
 COPY config/ config/
 
-RUN pip install --no-cache-dir ./shared ./mcps/_base ./agents/_base ./agents/fin1
+RUN pip install --no-cache-dir './shared[otel]' ./mcps/_base ./agents/_base ./agents/fin1
 
 ENV AWP_CONFIG_DIR=/app/config
 

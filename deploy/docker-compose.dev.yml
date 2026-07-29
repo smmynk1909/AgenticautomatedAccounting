@@ -1,9 +1,8 @@
-# Sprint 1-10 stack — DEVIATIONS.md #3: trimmed to what's landed so far
-# (Postgres, Redis, MinIO, Ollama, Qdrant, Gitea, mcp-audit, mcp-approvals,
-# mcp-erp, mcp-comms, mcp-docs, mcp-finance, mcp-search, mcp-hrsourcing,
-# mcp-projects, gateway, orch0, sup1, adm1, fin1, hr1, ops1, scheduler).
-# Keycloak/observability are added to this same file as their owning
-# sprints land.
+# Sprint 1-11 stack — DEVIATIONS.md #3: trimmed to what's landed so far
+# (Postgres, Redis, MinIO, Ollama, Qdrant, Gitea, Keycloak, mcp-audit,
+# mcp-approvals, mcp-erp, mcp-comms, mcp-docs, mcp-finance, mcp-search,
+# mcp-hrsourcing, mcp-projects, gateway, orch0, sup1, adm1, fin1, hr1,
+# ops1, scheduler, otel-collector, prometheus, loki, promtail, grafana).
 #
 # Usage: `make up` (== `docker compose -f deploy/docker-compose.dev.yml
 # --env-file .env up -d`). Build contexts are the repo root so each service's
@@ -169,6 +168,7 @@ services:
       # var — even for servers (like this one) that never call the LLM
       # themselves. Omitting it here crash-loops the container on start.
       MODEL_GATEWAY_URL: http://ollama:11434/v1
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
       AWP_AUDIT_SPOOL_DIR: /app/.spool/audit
     volumes:
       - audit_spool:/app/.spool/audit
@@ -194,6 +194,7 @@ services:
       AWP_APPROVAL_JWT_SECRET: ${AWP_APPROVAL_JWT_SECRET}
       AWP_JWT_ISSUER: ${AWP_JWT_ISSUER}
       MODEL_GATEWAY_URL: http://ollama:11434/v1
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
       MCP_AUDIT_URL: http://mcp-audit:8000
     ports:
       - "8002:8000"
@@ -217,6 +218,7 @@ services:
       AWP_APPROVAL_JWT_SECRET: ${AWP_APPROVAL_JWT_SECRET}
       AWP_JWT_ISSUER: ${AWP_JWT_ISSUER}
       MODEL_GATEWAY_URL: http://ollama:11434/v1
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
       MCP_AUDIT_URL: http://mcp-audit:8000
     ports:
       - "8003:8000"
@@ -240,6 +242,7 @@ services:
       AWP_APPROVAL_JWT_SECRET: ${AWP_APPROVAL_JWT_SECRET}
       AWP_JWT_ISSUER: ${AWP_JWT_ISSUER}
       MODEL_GATEWAY_URL: http://ollama:11434/v1
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
       MCP_AUDIT_URL: http://mcp-audit:8000
     ports:
       - "8004:8000"
@@ -263,6 +266,9 @@ services:
       AWP_APPROVAL_JWT_SECRET: ${AWP_APPROVAL_JWT_SECRET}
       AWP_JWT_ISSUER: ${AWP_JWT_ISSUER}
       MODEL_GATEWAY_URL: http://ollama:11434/v1
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      # Sprint 12 go-live posture — see tools_ledger.py's module docstring.
+      AWP_HITL_MAX: ${AWP_HITL_MAX:-false}
       MCP_AUDIT_URL: http://mcp-audit:8000
     ports:
       - "8006:8000"
@@ -287,6 +293,7 @@ services:
       AWP_APPROVAL_JWT_SECRET: ${AWP_APPROVAL_JWT_SECRET}
       AWP_JWT_ISSUER: ${AWP_JWT_ISSUER}
       MODEL_GATEWAY_URL: http://ollama:11434/v1
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
       MCP_AUDIT_URL: http://mcp-audit:8000
       MINIO_ENDPOINT: minio:9000
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
@@ -317,6 +324,7 @@ services:
       AWP_APPROVAL_JWT_SECRET: ${AWP_APPROVAL_JWT_SECRET}
       AWP_JWT_ISSUER: ${AWP_JWT_ISSUER}
       MODEL_GATEWAY_URL: http://ollama:11434/v1
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
       MODEL_EMB: ${MODEL_EMB}
       QDRANT_URL: http://qdrant:6333
       MCP_AUDIT_URL: http://mcp-audit:8000
@@ -341,6 +349,7 @@ services:
       AWP_APPROVAL_JWT_SECRET: ${AWP_APPROVAL_JWT_SECRET}
       AWP_JWT_ISSUER: ${AWP_JWT_ISSUER}
       MODEL_GATEWAY_URL: http://ollama:11434/v1
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
       MODEL_SMALL: ${MODEL_SMALL}
       MCP_AUDIT_URL: http://mcp-audit:8000
     ports:
@@ -367,6 +376,7 @@ services:
       AWP_APPROVAL_JWT_SECRET: ${AWP_APPROVAL_JWT_SECRET}
       AWP_JWT_ISSUER: ${AWP_JWT_ISSUER}
       MODEL_GATEWAY_URL: http://ollama:11434/v1
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
       MCP_AUDIT_URL: http://mcp-audit:8000
       # container-internal Gitea URL — different from the host-side
       # GITEA_URL (localhost:3000) scripts/gitea_bootstrap.sh uses.
@@ -398,6 +408,7 @@ services:
       AWP_APPROVAL_JWT_SECRET: ${AWP_APPROVAL_JWT_SECRET}
       AWP_JWT_ISSUER: ${AWP_JWT_ISSUER}
       MODEL_GATEWAY_URL: http://ollama:11434/v1
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
       MCP_ERP_URL: http://mcp-erp:8000
       MCP_FINANCE_URL: http://mcp-finance:8000
       AWP_ENV: ${AWP_ENV}
@@ -441,6 +452,7 @@ services:
       AWP_APPROVAL_JWT_SECRET: ${AWP_APPROVAL_JWT_SECRET}
       AWP_JWT_ISSUER: ${AWP_JWT_ISSUER}
       MODEL_GATEWAY_URL: http://ollama:11434/v1
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
       MODEL_GEN: ${MODEL_GEN}
       MCP_ERP_URL: http://mcp-erp:8000
       MCP_APPROVALS_URL: http://mcp-approvals:8000
@@ -473,6 +485,7 @@ services:
       AWP_APPROVAL_JWT_SECRET: ${AWP_APPROVAL_JWT_SECRET}
       AWP_JWT_ISSUER: ${AWP_JWT_ISSUER}
       MODEL_GATEWAY_URL: http://ollama:11434/v1
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
       MODEL_SMALL: ${MODEL_SMALL}
       MCP_ERP_URL: http://mcp-erp:8000
       MCP_DOCS_URL: http://mcp-docs:8000
@@ -508,6 +521,7 @@ services:
       AWP_APPROVAL_JWT_SECRET: ${AWP_APPROVAL_JWT_SECRET}
       AWP_JWT_ISSUER: ${AWP_JWT_ISSUER}
       MODEL_GATEWAY_URL: http://ollama:11434/v1
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
       MODEL_SMALL: ${MODEL_SMALL}
       MCP_ERP_URL: http://mcp-erp:8000
       MCP_FINANCE_URL: http://mcp-finance:8000
@@ -546,6 +560,7 @@ services:
       AWP_APPROVAL_JWT_SECRET: ${AWP_APPROVAL_JWT_SECRET}
       AWP_JWT_ISSUER: ${AWP_JWT_ISSUER}
       MODEL_GATEWAY_URL: http://ollama:11434/v1
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
       MODEL_GEN: ${MODEL_GEN}
       MCP_ERP_URL: http://mcp-erp:8000
       MCP_SEARCH_URL: http://mcp-search:8000
@@ -583,6 +598,7 @@ services:
       AWP_APPROVAL_JWT_SECRET: ${AWP_APPROVAL_JWT_SECRET}
       AWP_JWT_ISSUER: ${AWP_JWT_ISSUER}
       MODEL_GATEWAY_URL: http://ollama:11434/v1
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
       MODEL_GEN: ${MODEL_GEN}
       MODEL_CODE: ${MODEL_CODE}
       MCP_ERP_URL: http://mcp-erp:8000
@@ -612,6 +628,7 @@ services:
       AWP_APPROVAL_JWT_SECRET: ${AWP_APPROVAL_JWT_SECRET}
       AWP_JWT_ISSUER: ${AWP_JWT_ISSUER}
       MODEL_GATEWAY_URL: http://ollama:11434/v1
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
       MODEL_SMALL: ${MODEL_SMALL}
       MCP_ERP_URL: http://mcp-erp:8000
 
@@ -627,6 +644,10 @@ services:
         condition: service_healthy
       mcp-erp:
         condition: service_started
+      mcp-audit:
+        condition: service_started
+      mcp-comms:
+        condition: service_started
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       REDIS_URL: redis://redis:6379/0
@@ -634,7 +655,75 @@ services:
       AWP_APPROVAL_JWT_SECRET: ${AWP_APPROVAL_JWT_SECRET}
       AWP_JWT_ISSUER: ${AWP_JWT_ISSUER}
       MODEL_GATEWAY_URL: http://ollama:11434/v1
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
       MCP_ERP_URL: http://mcp-erp:8000
+      MCP_AUDIT_URL: http://mcp-audit:8000
+      MCP_COMMS_URL: http://mcp-comms:8000
+
+  # --- Observability (Sprint 11) — doc 10 HLD C19 ---
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.96.0
+    restart: unless-stopped
+    command: ["--config=/etc/otel-collector.yml"]
+    volumes:
+      - ./observability/otel-collector.yml:/etc/otel-collector.yml:ro
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    restart: unless-stopped
+    depends_on:
+      otel-collector:
+        condition: service_started
+    volumes:
+      - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - promdata:/prometheus
+    ports:
+      - "9090:9090"
+
+  loki:
+    image: grafana/loki:2.9.8
+    restart: unless-stopped
+    command: ["-config.file=/etc/loki/loki.yml"]
+    volumes:
+      - ./observability/loki.yml:/etc/loki/loki.yml:ro
+      - lokidata:/loki
+    ports:
+      - "3100:3100"
+
+  promtail:
+    image: grafana/promtail:2.9.8
+    restart: unless-stopped
+    depends_on:
+      loki:
+        condition: service_started
+    command: ["-config.file=/etc/promtail/promtail.yml"]
+    volumes:
+      - ./observability/promtail.yml:/etc/promtail/promtail.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+
+  grafana:
+    image: grafana/grafana:11.1.0
+    restart: unless-stopped
+    depends_on:
+      prometheus:
+        condition: service_started
+      loki:
+        condition: service_started
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-dev-only-not-for-prod}
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafanadata:/var/lib/grafana
+    ports:
+      - "3001:3000"
 
 volumes:
   pgdata:
@@ -643,5 +732,8 @@ volumes:
   ollamadata:
   qdrantdata:
   giteadata:
+  promdata:
+  lokidata:
+  grafanadata:
   keycloakdata:
   audit_spool:

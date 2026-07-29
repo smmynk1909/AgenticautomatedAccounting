@@ -1,0 +1,49 @@
+# OTel Collector config — doc 10 HLD C19, doc 00 §7 "every task_id = trace".
+#
+# Every AWP process (gateway, 9 MCP servers, 6 agents, scheduler) exports
+# OTLP/gRPC to this collector (`OTEL_EXPORTER_OTLP_ENDPOINT` in
+# docker-compose.dev.yml) once `shared/awp_shared/tracing.py`'s optional
+# `otel` extra is installed (it is, per every Dockerfile in this repo —
+# `pip install './shared[otel]' ...`).
+#
+# Traces: batched and sent to the `debug` exporter only — no dedicated
+# trace-storage backend (Tempo/Jaeger/etc.) is named anywhere in docs/, so
+# none is invented here (same "don't build what the docs don't ask for"
+# discipline as every other DEVIATIONS.md entry). `docker compose logs
+# otel-collector` is the trace viewer for now; swapping in a real backend
+# later is an addition to this file's exporters/pipelines, not a
+# call-site change anywhere else — every span already goes through
+# `awp_shared.tracing.start_span`.
+#
+# Metrics: re-exposed via the `prometheus` exporter for `prometheus.yml`
+# to scrape at :8889 — kept separate from each service's own `/metrics`
+# (Prometheus scrapes both; doc names Prometheus/Grafana without deciding
+# push-vs-pull, and both paths are cheap to keep).
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch: {}
+
+exporters:
+  debug:
+    verbosity: normal
+  prometheus:
+    endpoint: 0.0.0.0:8889
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [debug]
+    metrics:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [prometheus]

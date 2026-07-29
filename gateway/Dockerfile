@@ -12,7 +12,7 @@ COPY mcps/approvals/ mcps/approvals/
 COPY gateway/ gateway/
 COPY config/ config/
 
-RUN pip install --no-cache-dir ./shared ./mcps/_base ./mcps/approvals ./gateway
+RUN pip install --no-cache-dir './shared[otel]' ./mcps/_base ./mcps/approvals ./gateway
 
 ENV AWP_CONFIG_DIR=/app/config
 

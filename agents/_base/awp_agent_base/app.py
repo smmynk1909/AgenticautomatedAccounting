@@ -5,11 +5,14 @@ checkpointing (doc 11 §2).
 from __future__ import annotations
 
 import asyncio
+import time
 from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING, Any
 
 import structlog
+from awp_shared.metrics import agent_task_duration_seconds, agent_tasks_total
 from awp_shared.schemas import AgentId, TaskEnvelope, TaskResult, TaskStatus
+from awp_shared.tracing import start_span
 
 from awp_agent_base.checkpoint import CheckpointStore
 from awp_agent_base.state import new_state
@@ -70,33 +73,47 @@ class AgentApp:
         else:
             state["task"] = env  # refresh envelope (e.g. re-dispatch with updated payload)
 
-        try:
-            final_state = await self._graph.ainvoke(state)
-        except Exception as exc:  # noqa: BLE001 - a node crash must still checkpoint + surface
-            logger.error("agent.graph_crashed", agent=self.agent_id.value, error=str(exc))
-            await self._checkpoints.save(env.task_id, self._graph_name, state)
-            crash_result = TaskResult(
-                task_id=env.task_id,
-                status=TaskStatus.FAILED,
-                summary=f"agent crashed: {exc}",
-            )
-            await self._call_on_result(env, crash_result)
-            return crash_result
+        start = time.monotonic()
+        with start_span(
+            f"agent.{self.agent_id.value}.{env.intent}",
+            trace_id=env.task_id,
+            agent=self.agent_id.value,
+            intent=env.intent,
+        ):
+            try:
+                final_state = await self._graph.ainvoke(state)
+            except Exception as exc:  # noqa: BLE001 - a node crash must still checkpoint + surface
+                logger.error("agent.graph_crashed", agent=self.agent_id.value, error=str(exc))
+                await self._checkpoints.save(env.task_id, self._graph_name, state)
+                crash_result = TaskResult(
+                    task_id=env.task_id,
+                    status=TaskStatus.FAILED,
+                    summary=f"agent crashed: {exc}",
+                )
+                self._record_task_metrics(env, crash_result, start)
+                await self._call_on_result(env, crash_result)
+                return crash_result
 
-        await self._checkpoints.save(env.task_id, self._graph_name, final_state)
+            await self._checkpoints.save(env.task_id, self._graph_name, final_state)
 
-        result: TaskResult | None = final_state.get("result")
-        if result is None:
-            # Graph ended without reaching n_summarize/n_fail — a graph.py bug,
-            # not a task outcome; surface it as FAILED rather than silently
-            # reporting DONE.
-            result = TaskResult(
-                task_id=env.task_id,
-                status=TaskStatus.FAILED,
-                summary="agent graph ended without producing a result",
-            )
-        await self._call_on_result(env, result)
-        return result
+            result: TaskResult | None = final_state.get("result")
+            if result is None:
+                # Graph ended without reaching n_summarize/n_fail — a graph.py bug,
+                # not a task outcome; surface it as FAILED rather than silently
+                # reporting DONE.
+                result = TaskResult(
+                    task_id=env.task_id,
+                    status=TaskStatus.FAILED,
+                    summary="agent graph ended without producing a result",
+                )
+            self._record_task_metrics(env, result, start)
+            await self._call_on_result(env, result)
+            return result
+
+    def _record_task_metrics(self, env: TaskEnvelope, result: TaskResult, start: float) -> None:
+        duration = time.monotonic() - start
+        agent_tasks_total.labels(self.agent_id.value, env.intent, result.status.value).inc()
+        agent_task_duration_seconds.labels(self.agent_id.value, env.intent).observe(duration)
 
     async def _call_on_result(self, env: TaskEnvelope, result: TaskResult) -> None:
         if self._on_result is None:

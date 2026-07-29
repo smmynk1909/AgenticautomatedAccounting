@@ -14,7 +14,7 @@ COPY agents/orch0/ agents/orch0/
 COPY scheduler/ scheduler/
 COPY config/ config/
 
-RUN pip install --no-cache-dir ./shared ./mcps/_base ./agents/_base ./agents/orch0 ./scheduler
+RUN pip install --no-cache-dir './shared[otel]' ./mcps/_base ./agents/_base ./agents/orch0 ./scheduler
 
 ENV AWP_CONFIG_DIR=/app/config
 ENV AWP_JOBS_YAML=/app/scheduler/jobs.yaml

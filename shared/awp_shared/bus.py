@@ -30,6 +30,8 @@ MAX_ATTEMPTS = 3
 DLQ_STREAM = "tasks.dlq"
 CONSUMER_GROUP = "workers"
 RECONNECT_BACKOFF_S = 2.0
+KILL_SWITCH_PREFIX = "killswitch:"
+KILL_SWITCH_POLL_S = 2.0
 
 # doc 00 §5 examples use short department names, not the AgentId enum values.
 AGENT_STREAM_SUFFIX: dict[AgentId, str] = {
@@ -100,6 +102,18 @@ class TaskBus:
         stream = stream_name(agent)
         await self._ensure_group(stream)
         while stop is None or not stop.is_set():
+            if await self.is_killed(agent):
+                # doc 09 §4.5 "kill-switch env flag per agent (queue-park
+                # mode)" — never actually implemented before Sprint 11/12's
+                # go-live hardening (doc 12 §6 exit checklist: "kill-switch
+                # drill executed"). Deliberately does NOT ack/read/drop
+                # anything: this consumer just stops pulling from the
+                # stream, so every new task piles up unread ("parks") for
+                # whichever consumer picks the switch back up — no task is
+                # lost, silently dropped, or partially processed.
+                logger.warning("bus.kill_switch_parked", agent=agent.value)
+                await asyncio.sleep(KILL_SWITCH_POLL_S)
+                continue
             try:
                 # redis-py's XREADGROUP return type is a broad union in its
                 # stubs (shape varies with flags we don't use here); `cast`
@@ -181,3 +195,17 @@ class TaskBus:
     async def is_alive(self, agent: AgentId) -> bool:
         result: Any = await self._redis.get(f"hb:{agent.value}")
         return result is not None
+
+    async def set_kill_switch(self, agent: AgentId, on: bool) -> None:
+        """Ops-triggered (`scripts/kill_switch.py`), not agent-triggered — no
+        MCP tool exposes this (doc 08 never lists one), matching the "an
+        agent scope can never approve its own gate" discipline elsewhere in
+        this codebase applied to blast-radius control instead of HITL."""
+        key = f"{KILL_SWITCH_PREFIX}{agent.value}"
+        if on:
+            await self._redis.set(key, "1")
+        else:
+            await self._redis.delete(key)
+
+    async def is_killed(self, agent: AgentId) -> bool:
+        return bool(await self._redis.exists(f"{KILL_SWITCH_PREFIX}{agent.value}"))

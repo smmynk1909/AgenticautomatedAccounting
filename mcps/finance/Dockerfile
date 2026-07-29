@@ -9,7 +9,7 @@ COPY mcps/_base/ mcps/_base/
 COPY mcps/finance/ mcps/finance/
 COPY config/ config/
 
-RUN pip install --no-cache-dir ./shared ./fincore ./mcps/_base ./mcps/finance
+RUN pip install --no-cache-dir './shared[otel]' ./fincore ./mcps/_base ./mcps/finance
 
 ENV AWP_CONFIG_DIR=/app/config
 

@@ -7,10 +7,23 @@ postings don't set `expense_context` at all, since those flows are gated
 by `payroll_run`/`invoice_issue` tokens earlier in their own workflow
 (doc 06 §2.1 step 6-7, §2.3 step 4); `post_journal` itself only re-checks
 a gate for the one condition doc 08 §2 actually ties to it.
+
+`AWP_HITL_MAX` (Sprint 12, doc 12 §5 "Go-live (HITL-max settings)"): this
+threshold pair is the *only* auto-approve-below-a-threshold path anywhere
+in this codebase (every other gate in `config/gates.yaml` fires
+unconditionally) — grepped, not assumed. Doc 09 §6's own progression is
+shadow -> gated -> autonomous-with-relaxed-thresholds *after* clean
+cycles build trust; go-live is day zero of that progression, so nothing
+should auto-post yet. Setting `AWP_HITL_MAX=1` forces the gate for every
+`expense_context` posting regardless of amount/confidence — the
+thresholds above stay defined (so turning `AWP_HITL_MAX` back off after
+enough clean cycles doesn't require redeploying different logic, just
+flipping the env var back).
 """
 
 from __future__ import annotations
 
+import os
 from datetime import date
 from decimal import Decimal
 from typing import Any
@@ -30,6 +43,10 @@ from awp_mcp_finance.wire import parse_date
 
 EXPENSE_POSTING_CONFIDENCE_THRESHOLD = Decimal("0.8")
 EXPENSE_POSTING_AMOUNT_THRESHOLD = Decimal("25000")
+
+
+def _hitl_max() -> bool:
+    return os.environ.get("AWP_HITL_MAX", "").lower() in ("1", "true", "yes")
 
 
 def _to_fincore_entry(payload: dict[str, Any]) -> JournalEntry:
@@ -67,7 +84,8 @@ def register_ledger_tools(server: AwpMcpServer, uow: UnitOfWork, redis: Redis) -
             amount = Decimal(str(expense_context.get("amount", "0")))
             confidence = Decimal(str(expense_context.get("confidence", "1")))
             if (
-                amount > EXPENSE_POSTING_AMOUNT_THRESHOLD
+                _hitl_max()
+                or amount > EXPENSE_POSTING_AMOUNT_THRESHOLD
                 or confidence < EXPENSE_POSTING_CONFIDENCE_THRESHOLD
             ):
                 await verify_approval_token(

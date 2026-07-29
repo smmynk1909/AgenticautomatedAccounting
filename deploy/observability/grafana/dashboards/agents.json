@@ -1,0 +1,76 @@
+{
+  "uid": "awp-agents",
+  "title": "AWP / Agents",
+  "tags": ["awp"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": { "from": "now-6h", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Task throughput by agent/status",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [
+        {
+          "expr": "sum by (agent, status) (rate(awp_agent_tasks_total[5m]))",
+          "legendFormat": "{{agent}} / {{status}}"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Task duration p95 by agent",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (agent, le) (rate(awp_agent_task_duration_seconds_bucket[5m])))",
+          "legendFormat": "{{agent}} p95"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Failed tasks (last 1h)",
+      "type": "stat",
+      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [
+        {
+          "expr": "sum by (agent) (increase(awp_agent_tasks_total{status=\"failed\"}[1h]))",
+          "legendFormat": "{{agent}}"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "MCP tool error rate by server",
+      "type": "timeseries",
+      "gridPos": { "h": 6, "w": 12, "x": 12, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [
+        {
+          "expr": "sum by (server) (rate(awp_mcp_tool_calls_total{status!=\"ok\"}[5m])) / sum by (server) (rate(awp_mcp_tool_calls_total[5m]))",
+          "legendFormat": "{{server}}"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Agent logs",
+      "type": "logs",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 14 },
+      "datasource": { "type": "loki", "uid": "Loki" },
+      "targets": [
+        {
+          "expr": "{container=~\"deploy-(orch0|adm1|fin1|hr1|ops1|sup1)-1\"}"
+        }
+      ]
+    }
+  ]
+}

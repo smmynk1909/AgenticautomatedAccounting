@@ -8,7 +8,7 @@ COPY mcps/_base/ mcps/_base/
 COPY mcps/erp/ mcps/erp/
 COPY config/ config/
 
-RUN pip install --no-cache-dir ./shared ./mcps/_base ./mcps/erp
+RUN pip install --no-cache-dir './shared[otel]' ./mcps/_base ./mcps/erp
 
 ENV AWP_CONFIG_DIR=/app/config
 
