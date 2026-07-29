@@ -2,7 +2,8 @@ import pytest
 from awp_shared.audit_mw import AuditEvent
 from awp_shared.auth import mint_service_jwt
 from awp_shared.config import get_required_scopes, load_config
-from awp_shared.errors import PermissionDeniedError, ValidationError
+from awp_shared.errors import NotFoundError, PermissionDeniedError, ValidationError
+from awp_shared.metrics import REGISTRY
 from fakeredis.aioredis import FakeRedis
 
 from awp_mcp_base.ctx import Ctx
@@ -164,3 +165,64 @@ async def test_pipeline_wired_to_real_scopes_config_enforces_audit_write() -> No
         "log_event", {}, {"Authorization": f"Bearer {ok_token}"}, handler
     )
     assert result == {}
+
+
+def _counter(name: str, **labels: str) -> float:
+    # Prometheus's registry is process-global; before/after deltas on the
+    # dedicated label combo below are what make this reliable regardless
+    # of test order or what other tests touched the same metric.
+    return REGISTRY.get_sample_value(name, labels) or 0.0
+
+
+@pytest.mark.asyncio
+async def test_dispatch_records_success_metrics() -> None:
+    pipeline = _pipeline()
+    token = mint_service_jwt("FIN-1", ["audit.write"])
+    labels = {"server": "audit", "tool": "log_event", "status": "ok"}
+    before_calls = _counter("awp_mcp_tool_calls_total", **labels)
+    before_duration = _counter(
+        "awp_mcp_tool_call_duration_seconds_count", server="audit", tool="log_event"
+    )
+
+    async def handler(payload: dict, ctx: Ctx) -> dict:
+        return {"ok": True}
+
+    await pipeline.dispatch("log_event", {}, {"Authorization": f"Bearer {token}"}, handler)
+
+    assert _counter("awp_mcp_tool_calls_total", **labels) == before_calls + 1
+    assert (
+        _counter("awp_mcp_tool_call_duration_seconds_count", server="audit", tool="log_event")
+        == before_duration + 1
+    )
+
+
+@pytest.mark.asyncio
+async def test_dispatch_records_error_code_as_status_label() -> None:
+    pipeline = _pipeline()
+    token = mint_service_jwt("FIN-1", ["audit.write"])
+    labels = {"server": "audit", "tool": "log_event", "status": "NOT_FOUND"}
+    before = _counter("awp_mcp_tool_calls_total", **labels)
+
+    async def handler(payload: dict, ctx: Ctx) -> dict:
+        raise NotFoundError("no such thing")
+
+    with pytest.raises(NotFoundError):
+        await pipeline.dispatch("log_event", {}, {"Authorization": f"Bearer {token}"}, handler)
+
+    assert _counter("awp_mcp_tool_calls_total", **labels) == before + 1
+
+
+@pytest.mark.asyncio
+async def test_dispatch_records_internal_error_status_for_unexpected_exception() -> None:
+    pipeline = _pipeline()
+    token = mint_service_jwt("FIN-1", ["audit.write"])
+    labels = {"server": "audit", "tool": "log_event", "status": "internal_error"}
+    before = _counter("awp_mcp_tool_calls_total", **labels)
+
+    async def handler(payload: dict, ctx: Ctx) -> dict:
+        raise RuntimeError("unexpected bug")
+
+    with pytest.raises(RuntimeError):
+        await pipeline.dispatch("log_event", {}, {"Authorization": f"Bearer {token}"}, handler)
+
+    assert _counter("awp_mcp_tool_calls_total", **labels) == before + 1

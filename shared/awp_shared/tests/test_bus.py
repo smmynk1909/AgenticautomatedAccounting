@@ -157,3 +157,61 @@ async def test_heartbeat_and_is_alive() -> None:
     assert await bus.is_alive(AgentId.FIN1) is False
     await bus.heartbeat(AgentId.FIN1)
     assert await bus.is_alive(AgentId.FIN1) is True
+
+
+@pytest.mark.asyncio
+async def test_kill_switch_round_trips() -> None:
+    redis = _redis()
+    bus = TaskBus(redis)
+    assert await bus.is_killed(AgentId.HR1) is False
+
+    await bus.set_kill_switch(AgentId.HR1, on=True)
+    assert await bus.is_killed(AgentId.HR1) is True
+    # Scoped per-agent — turning HR-1 on must not affect a different agent.
+    assert await bus.is_killed(AgentId.FIN1) is False
+
+    await bus.set_kill_switch(AgentId.HR1, on=False)
+    assert await bus.is_killed(AgentId.HR1) is False
+
+
+@pytest.mark.asyncio
+async def test_consume_parks_while_killed_then_delivers_once_cleared(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # doc 09 §4.5 "queue-park mode" — the defining property is that a
+    # killed consumer never even issues XREADGROUP, so a dispatched task
+    # sits untouched (not just unacked) until the switch clears, and is
+    # then delivered normally with no special resume logic.
+    monkeypatch.setattr("awp_shared.bus.KILL_SWITCH_POLL_S", 0.01)
+    redis = _redis()
+    bus = TaskBus(redis)
+    env = _envelope(to_agent=AgentId.HR1, intent="prepare_negotiation")
+    await bus.dispatch(env)
+    await bus.set_kill_switch(AgentId.HR1, on=True)
+
+    poll_count_while_killed = 0
+    stop = asyncio.Event()
+
+    async def handler(_e: TaskEnvelope) -> TaskResult:
+        stop.set()  # let the loop exit right after the one real delivery
+        return TaskResult(task_id=_e.task_id, status=TaskStatus.DONE, summary="ok")
+
+    async def flip_off_after_a_few_polls() -> None:
+        nonlocal poll_count_while_killed
+        # Several real poll intervals elapse with the switch on before we
+        # clear it — proves parking isn't a one-shot check at loop entry.
+        for _ in range(5):
+            assert await bus.is_killed(AgentId.HR1) is True
+            poll_count_while_killed += 1
+            await asyncio.sleep(0.015)
+        await bus.set_kill_switch(AgentId.HR1, on=False)
+
+    watcher = asyncio.create_task(flip_off_after_a_few_polls())
+    await asyncio.wait_for(
+        bus.consume(AgentId.HR1, handler, consumer_name="c1", block_ms=50, stop=stop),
+        timeout=5,
+    )
+    await watcher
+
+    assert poll_count_while_killed == 5
+    assert stop.is_set()  # only true if the handler actually ran, post-unpark

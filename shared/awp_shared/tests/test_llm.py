@@ -7,6 +7,7 @@ from pydantic import BaseModel
 
 from awp_shared.errors import UpstreamError, ValidationError
 from awp_shared.llm import LLM, SamplingProfile
+from awp_shared.metrics import REGISTRY
 
 
 def _chat_response(content: str | None = None, tool_calls: list[dict] | None = None) -> dict:
@@ -127,3 +128,48 @@ async def test_guided_json_fails_after_repair_round() -> None:
     llm = _llm_with_transport(handler)
     with pytest.raises(ValidationError):
         await llm.chat([{"role": "user", "content": "plan"}], guided_json=_Plan)
+
+
+def _counter(name: str, **labels: str) -> float:
+    return REGISTRY.get_sample_value(name, labels) or 0.0
+
+
+@pytest.mark.asyncio
+async def test_chat_records_metrics_on_success() -> None:
+    # A model name unique to this test avoids colliding with any other
+    # test file's counter values for a shared label combination — the
+    # Prometheus registry is process-global, so before/after deltas on a
+    # dedicated label are the only reliable way to assert on it.
+    model = "test-model-metrics-ok"
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=_chat_response(content="hi"))
+
+    transport = httpx.MockTransport(handler)
+    client = httpx.AsyncClient(transport=transport)
+    llm = LLM("http://model-gw:11434/v1", model, SamplingProfile(), client=client)
+    before_ok = _counter("awp_llm_calls_total", model=model, status="ok")
+    before_count = _counter("awp_llm_call_duration_seconds_count", model=model)
+
+    await llm.chat([{"role": "user", "content": "hi"}])
+
+    assert _counter("awp_llm_calls_total", model=model, status="ok") == before_ok + 1
+    assert _counter("awp_llm_call_duration_seconds_count", model=model) == before_count + 1
+
+
+@pytest.mark.asyncio
+async def test_chat_records_metrics_on_transport_error() -> None:
+    model = "test-model-metrics-error"
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("connection refused")
+
+    transport = httpx.MockTransport(handler)
+    client = httpx.AsyncClient(transport=transport)
+    llm = LLM("http://model-gw:11434/v1", model, SamplingProfile(), client=client)
+    before_error = _counter("awp_llm_calls_total", model=model, status="error")
+
+    with pytest.raises(UpstreamError):
+        await llm.chat([{"role": "user", "content": "hi"}])
+
+    assert _counter("awp_llm_calls_total", model=model, status="error") == before_error + 1

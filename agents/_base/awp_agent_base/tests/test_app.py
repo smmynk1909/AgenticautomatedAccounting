@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable
 from typing import Any
 
+from awp_shared.metrics import REGISTRY
 from awp_shared.schemas import AgentId, TaskEnvelope, TaskResult, TaskStatus
 from langgraph.graph import END, StateGraph
 
@@ -12,8 +13,16 @@ from awp_agent_base.checkpoint import CheckpointStore
 from awp_agent_base.state import AgentState
 
 
-def _task() -> TaskEnvelope:
-    return TaskEnvelope(from_agent=AgentId.ORCH0, to_agent=AgentId.SUP1, intent="create_ticket")
+def _task(**overrides: Any) -> TaskEnvelope:
+    defaults: dict[str, Any] = dict(
+        from_agent=AgentId.ORCH0, to_agent=AgentId.SUP1, intent="create_ticket"
+    )
+    defaults.update(overrides)
+    return TaskEnvelope(**defaults)
+
+
+def _counter(name: str, **labels: str) -> float:
+    return REGISTRY.get_sample_value(name, labels) or 0.0
 
 
 class _FakeGraph:
@@ -188,3 +197,45 @@ async def test_real_langgraph_wiring_validate_then_summarize(checkpoints: Checkp
 
     assert result.status == TaskStatus.DONE
     assert result.summary == "Ticket created."
+
+
+async def test_handle_records_task_metrics_on_success(checkpoints: CheckpointStore) -> None:
+    intent = "test_metrics_success"
+
+    async def fn(state: AgentState) -> AgentState:
+        state["result"] = TaskResult(
+            task_id=state["task"].task_id, status=TaskStatus.DONE, summary="ok"
+        )
+        return state
+
+    app = AgentApp(AgentId.SUP1, _FakeGraph(fn), checkpoints, graph_name="sup1")
+    labels = {"agent": AgentId.SUP1.value, "intent": intent, "status": "done"}
+    before_calls = _counter("awp_agent_tasks_total", **labels)
+    before_duration = _counter(
+        "awp_agent_task_duration_seconds_count", agent=AgentId.SUP1.value, intent=intent
+    )
+
+    await app.handle(_task(intent=intent))
+
+    assert _counter("awp_agent_tasks_total", **labels) == before_calls + 1
+    assert (
+        _counter(
+            "awp_agent_task_duration_seconds_count", agent=AgentId.SUP1.value, intent=intent
+        )
+        == before_duration + 1
+    )
+
+
+async def test_handle_records_task_metrics_on_crash(checkpoints: CheckpointStore) -> None:
+    intent = "test_metrics_crash"
+
+    async def fn(state: AgentState) -> AgentState:
+        raise RuntimeError("boom")
+
+    app = AgentApp(AgentId.SUP1, _FakeGraph(fn), checkpoints, graph_name="sup1")
+    labels = {"agent": AgentId.SUP1.value, "intent": intent, "status": "failed"}
+    before = _counter("awp_agent_tasks_total", **labels)
+
+    await app.handle(_task(intent=intent))
+
+    assert _counter("awp_agent_tasks_total", **labels) == before + 1

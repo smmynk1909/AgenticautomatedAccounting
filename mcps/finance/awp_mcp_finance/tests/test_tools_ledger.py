@@ -115,6 +115,37 @@ async def test_post_journal_expense_below_threshold_auto_posts(
     assert len(result["lines"]) == 2
 
 
+async def test_post_journal_below_threshold_still_gated_under_hitl_max(
+    finance_server: AwpMcpServer, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # doc 12 §5 Sprint 12 "HITL-max settings" — with the flag on, even an
+    # entry that would normally auto-post (small amount, high confidence,
+    # same fixture as test_post_journal_expense_below_threshold_auto_posts
+    # above) must still gate. Read fresh from os.environ on every call
+    # (`_hitl_max()`), so setenv alone is enough — no reload needed.
+    monkeypatch.setenv("AWP_HITL_MAX", "true")
+    entry = _balanced_entry()
+    with pytest.raises(ApprovalRequiredError):
+        await finance_server.dispatch_raw(
+            "post_journal",
+            {"entry": entry, "expense_context": {"amount": "500", "confidence": "0.99"}},
+            _headers(_write_token()),
+        )
+
+
+async def test_post_journal_hitl_max_off_leaves_thresholds_unchanged(
+    finance_server: AwpMcpServer, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("AWP_HITL_MAX", "false")
+    entry = _balanced_entry()
+    result = await finance_server.dispatch_raw(
+        "post_journal",
+        {"entry": entry, "expense_context": {"amount": "500", "confidence": "0.99"}},
+        _headers(_write_token()),
+    )
+    assert len(result["lines"]) == 2
+
+
 async def test_get_trial_balance_reflects_posted_entries(finance_server: AwpMcpServer) -> None:
     await finance_server.dispatch_raw(
         "post_journal", {"entry": _balanced_entry()}, _headers(_write_token())
