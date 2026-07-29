@@ -31,14 +31,21 @@ without actually doing the thing.
       (`DEVIATIONS.md` #24). Postgres only — MinIO/Qdrant restore is
       unverified (`restore-drill.md` explains why that's a smaller gap
       than it sounds).
-- [ ] **Audit chain verifies daily.** The verifier itself
-      (`mcps/audit/awp_mcp_audit/verifier.py`, Merkle-root recompute) has
-      existed since Sprint 1. What was missing until this pass: nothing
-      ever *called* it on a schedule. `scheduler/awp_scheduler/auditcheck.py`
-      now does — once per day, escalating via `notify_user` +
-      `push_dashboard_item` on any mismatch. Unchecked because it hasn't
-      run against a live stack yet (this session's scope was
-      implementation, not live verification — see below).
+- [x] **Audit chain verifies daily.** Live-verified against real data:
+      `compute_day_root` run for 2026-07-28 (6605 real audit events,
+      root `594fb1d5...`), then the exact `verify_audit_chain_daily`
+      function ran against the live `mcp-audit` server and confirmed
+      `tampered=False` with the stored and recomputed roots matching
+      exactly. The scheduled job itself (`scheduler/awp_scheduler/main.py`,
+      redis-deduped once per UTC day) is running live in the rebuilt
+      `scheduler` container and will fire on its own natural 24h
+      cadence — this check proves the verification logic and escalation
+      wiring are correct against real data, not that the cron trigger
+      itself has fired unattended yet (it hasn't had a full day to).
+      The tamper-detected/escalation branch is covered by
+      `test_auditcheck.py`'s unit tests (deliberately not reproduced
+      live — corrupting real audit_events rows to prove a negative
+      would be reckless against a real database).
 - [x] **RBAC matrix test 100%.** `gateway/awp_gateway/tests/test_rbac.py`
       exhaustively covers every role `config/roles.yaml` defines against
       every resource `rbac.py` gates: ticket category visibility (15

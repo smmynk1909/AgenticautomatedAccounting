@@ -1700,3 +1700,63 @@ job remain **unexercised on this host** despite being unit-tested,
 exactly as this entry's scope note already said — rebuilding is what
 turns "code-complete" into "actually running," and that hasn't
 happened yet for 23 of this stack's 24 containers.
+
+**Update: the rest of the stack was rebuilt, and the gap above is now
+closed.** `docker compose --env-file .env build` (all 16 remaining
+buildable services) then `docker compose --env-file .env up -d` (both
+commands correctly using `--env-file` this time — no repeat of the
+config-drift mistake above). Verified thoroughly, not just "containers
+show Up": every rebuilt image's `Created` timestamp is now the same
+day as this session's commits (spot-checked `hr1`, `gateway`,
+`scheduler`, `mcp-finance`); `RestartCount=0` across all 17 rebuilt
+containers (no crash-loop); `DATABASE_URL` inside a freshly-recreated
+container carries real credentials, not blank ones (the specific thing
+that broke last time). Then live-functional-checked, not just
+structurally: `curl http://localhost:8000/metrics` (gateway, published
+on the host) returns real Prometheus exposition text
+(`awp_mcp_tool_calls_total`, `awp_agent_tasks_total`, etc.); `docker
+exec deploy-hr1-1 python -c "'set_kill_switch' in dir(TaskBus)"` →
+`True` (every agent, not just OPS-1, now has the kill-switch code);
+`AWP_HITL_MAX` reaches `mcp-finance`'s environment correctly (`false`,
+matching the dev-mode default in this host's `.env`). Most
+significantly: Prometheus's own `/api/v1/targets` API — not just "an
+endpoint responds," but "the actual scrape pipeline is running" —
+showed all 9 `mcp-servers` targets, all 7 `agents` targets (the new
+stdlib `:9100` listeners), `gateway`, and `otel-collector` as `up`.
+One target (`mcp-search`) briefly showed `down` with a connection
+error immediately after the rebuild — a real transient (container
+still finishing its own startup exactly when Prometheus's scrape
+interval fired), self-resolved on the very next 15s scrape cycle,
+confirmed by re-querying the same API 20s later. This is the first
+point in the project where the observability stack has demonstrably
+worked end to end against the live system, not just been built.
+
+What's still not exercised live: the daily audit-chain job runs on a
+24h cadence (redis-deduped by date) — it won't actually fire again
+until a full day has passed on this container, so its live escalation
+path is unit-tested (`test_auditcheck.py`) but not yet observed firing
+for real, same as before this rebuild. Everything else Sprint 11/12
+introduced is now demonstrably live.
+
+**Update: the audit-chain job's verification logic was proven live too,
+without waiting a full day.** Called `mcp-audit.compute_day_root` for
+`2026-07-28` directly — a real, closed day with 6605 real
+`audit_events` rows — producing a real Merkle root
+(`594fb1d5e76b076d99610450425714ba3fe07f11b094a7e2de5822efc2b6838f`).
+Then ran the *exact* `scheduler.awp_scheduler.auditcheck.verify_audit_chain_daily`
+function (not a reimplementation, the real importable function) against
+the live stack, which recomputed the same root from the same 6605 rows
+independently and confirmed it matched
+(`{"tampered": false, "stored_root": "594fb1d5...", "recomputed_root":
+"594fb1d5..."}`), logging the real `audit.chain_verified` line. This
+proves the clean-path end to end against real production-shaped data —
+compute, store, independently recompute, compare, don't false-positive.
+The tampered-path (a real mismatch triggering `notify_user` +
+`push_dashboard_item`) stays unit-tested only, deliberately: the only
+way to exercise it live would be corrupting a real `audit_events` row
+on the live database, which is not a reasonable thing to do to prove a
+point. Between this and `test_auditcheck.py`'s escalation-path
+coverage, both halves of the mechanism now have real evidence behind
+them, just from different sources (live for the compute/verify path,
+unit for the escalate path) — an honest, deliberate scope line, not an
+oversight.
